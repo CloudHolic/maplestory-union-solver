@@ -1,0 +1,34 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude internal notes (not published)
+.claude/
+
+# Future subproject build artifacts
+node_modules/
+*.tsbuildinfo
+ui/dist/
+wasm/target/
+wasm/pkg/
+ml/.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+target/
+
+# Logs (training data, not checked in)
+logs/
+*.jsonl
+
+# Environment
+.env
+.env.local
