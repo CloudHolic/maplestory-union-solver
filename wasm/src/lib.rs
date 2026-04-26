@@ -5,9 +5,8 @@
 //! See 'docs/algorithms/exact-cover.md' for the algorithmic background.
 
 pub mod base;
-// pub mod domain;
+pub mod domain;
 pub mod error;
-mod domain;
 // pub mod io;
 // pub mod solver;
 
