@@ -1,5 +1,17 @@
-mod error;
+// SPDX-License-Identifier: LGPL-3.0-or-later
+// Copyright (C) 2026 Cloudholic
 
-fn main() {
-    println!("Hello, world!");
-}
+//! MapleStory Union placement solver.
+//! See 'docs/algorithms/exact-cover.md' for the algorithmic background.
+
+pub mod base;
+// pub mod domain;
+pub mod error;
+mod domain;
+// pub mod io;
+// pub mod solver;
+
+
+// Public API re-exports.
+pub use error::{Result, SolverError};
+
