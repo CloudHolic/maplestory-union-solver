@@ -4,16 +4,20 @@
 //! ExactCover solver: backtracking search for exact-cover packing.
 //! See `docs/algorithms/exact-cover.md` for the algorithmic background.
 
-use std::collections::HashMap;
-
-use crate::base::{BitSet, CAPACITY, LubyIterator, SolverRng, make_rng, shuffle};
-use crate::domain::{
-    BoardLayout, PieceInstance, enumerate_all_placements,
-    Coord, Placement
-};
+use std::collections::{HashMap, VecDeque};
+use std::time::Instant;
+use crate::base::{CAPACITY, LubyIterator, SolverRng, make_rng, shuffle};
+use crate::domain::{BoardLayout, PieceInstance, enumerate_all_placements, Placement};
 use crate::error::{Result, SolverError};
-use crate::io::{ExactCoverInput, ExactCoverResult, ExactCoverStats, Solution};
-use crate::solver::{IslandWorkspace, SearchState, PlacementUndo, island_check, neighbor_check, parity_check};
+use crate::io::{
+    PieceInstanceJson, ExactCoverInput, ExactCoverResult, ExactCoverStats,
+    Solution, SolverStats
+};
+use crate::SolutionPlacement;
+use crate::solver::{
+    IslandWorkspace, SearchState, PlacementUndo,
+    island_check, neighbor_check, parity_check
+};
 
 
 // ─── Solve options ──────────────────────────────────────────────────
@@ -48,9 +52,6 @@ impl Default for SolveOptions {
 
 /// All precomputed data for a single solve.
 struct SolveContext {
-    /// All cells of the target region, in index order.
-    board: BoardLayout,
-
     /// Total target cell count (== `board.cells.len()`).
     total_cells: u16,
 
@@ -212,7 +213,6 @@ impl SolveContext {
         }
 
         Ok(Self {
-            board,
             total_cells,
             total_black,
             total_white,
@@ -278,7 +278,28 @@ struct BacktrackEnv {
 
     /// Set to `true` when `nodes_this_restart` reaches `node_budget`.
     /// Each backtrack call observes this and unwinds promptly.
-    budget_exhausted: bool
+    budget_exhausted: bool,
+
+    /// Total nodes visited since the start of the solution.
+    total_nodes: u64,
+
+    /// Number of restart attempts (excluding the first one).
+    restarts: u32,
+
+    /// Unit propagations applied.
+    unit_propagations: u64,
+
+    /// Times parity check rejected a subtree.
+    parity_prunes: u64,
+
+    /// Times island check rejected a subtree.
+    island_prunes: u64,
+
+    /// Times neighbor check rejected a placement.
+    neighbor_prunes: u64,
+
+    /// Times the MRV scan found a cell with zero placements.
+    dead_cell_prunes: u64
 }
 
 impl BacktrackEnv {
@@ -292,7 +313,14 @@ impl BacktrackEnv {
             cell_order,
             nodes_this_restart: 0,
             node_budget: 0,
-            budget_exhausted: false
+            budget_exhausted: false,
+            total_nodes: 0,
+            restarts: 0,
+            unit_propagations: 0,
+            parity_prunes: 0,
+            island_prunes: 0,
+            neighbor_prunes: 0,
+            dead_cell_prunes: 0
         }
     }
 
@@ -322,7 +350,7 @@ enum MrvOutcome {
 
     /// All uncovered cells have ≥ 2 valid placements.
     /// Branch on the cell with the fewest placements.
-    Branch { cell_idx: u16, count: u32 },
+    Branch { cell_idx: u16 },
 
     /// No uncovered cells remain.
     AllCovered
@@ -340,6 +368,8 @@ enum MrvOutcome {
 ///    recursing into each.
 fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv) -> bool {
     env.nodes_this_restart += 1;
+    env.total_nodes += 1;
+
     if env.nodes_this_restart >= env.node_budget {
         env.budget_exhausted = true;
         return false;
@@ -357,9 +387,11 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv) -> bool {
 
     // Global pruning checks.
     if !parity_check(&env.state, ctx.total_black, ctx.total_white, &ctx.type_min_black, &ctx.type_max_black) {
+        env.parity_prunes += 1;
         return false;
     }
     if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells, &mut env.island_ws) {
+        env.island_prunes += 1;
         return false;
     }
 
@@ -369,14 +401,96 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv) -> bool {
     let mut cascade_depth: u32 = 0;
     let branch = loop {
         match scan_uncovered(ctx, env) {
+            MrvOutcome::DeadCell => {
+                // Undo all cascade applications and fail.
+                env.dead_cell_prunes += 1;
+                undo_cascade(ctx, env, cascade_depth);
+                return false;
+            }
 
+            MrvOutcome::AllCovered => {
+                // Edge case: cascade finished the puzzle.
+                let solved = env.state.has_center_mark;
+                if !solved {
+                    undo_cascade(ctx, env, cascade_depth);
+                }
+                return solved;
+            }
+
+            MrvOutcome::Unit { placement_idx } => {
+                // Apply the forced placement.
+                let pl = &ctx.placements[placement_idx as usize];
+                let drop = will_drop_center_mark_type(ctx, &env.state, pl);
+                let undo = env.state.apply_placement(pl, placement_idx as usize, drop);
+                cascade_depth += 1;
+                env.unit_propagations += 1;
+
+                // Neighbor check: does this placement strand any cell?
+                if !neighbor_check(pl, &env.state, &ctx.cell_to_placements, &ctx.placements) {
+                    // Undo this unit and the rest of the cascade.
+                    env.neighbor_prunes += 1;
+                    env.state.undo_placement(pl, undo);
+                    cascade_depth -= 1;
+                    undo_cascade(ctx, env, cascade_depth);
+                    return false;
+                }
+
+                if env.budget_exhausted {
+                    undo_cascade(ctx, env, cascade_depth);
+                    return false;
+                }
+
+                // Continue cascade.
+                continue;
+            }
+
+            MrvOutcome::Branch { cell_idx } => {
+                break cell_idx;
+            }
+        }
+    };
+
+    // Branch on `branch` cell. Iterate candidate placements; for each,
+    // apply, recurse, undo. Return on first success.
+    let candidates = ctx.cell_to_placements[branch as usize].clone();
+    for &p_idx in &candidates {
+        let pl = &ctx.placements[p_idx as usize];
+
+        // Skip placements that are no longer applicable.
+        if env.state.remaining[pl.type_idx as usize] == 0 {
+            continue;
+        }
+
+        if env.state.covered.has_overlap(&pl.bits) {
+            continue;
+        }
+
+        let drop = will_drop_center_mark_type(ctx, &env.state, pl);
+        let undo = env.state.apply_placement(pl, p_idx as usize, drop);
+
+        if !neighbor_check(pl, &env.state, &ctx.cell_to_placements, &ctx.placements) {
+            env.neighbor_prunes += 1;
+            env.state.undo_placement(pl, undo);
+            continue;
+        }
+
+        if backtrack(ctx, env) {
+            return true;
+        }
+
+        env.state.undo_placement(pl, undo);
+
+        if env.budget_exhausted {
+            break;
         }
     }
+
+    // No branch succeeded. Undo the cascade and report failure.
+    undo_cascade(ctx, env, cascade_depth);
+    false
 }
 
 /// Undoes the last `depth` placements pushed on to the result stack during a unit-propagation cascade.
-///
-///
 fn undo_cascade(ctx: &SolveContext, env: &mut BacktrackEnv, depth: u32) {
     for _ in 0..depth {
         // The most recently pushed result entry is the placement we applied.
@@ -417,7 +531,66 @@ fn undo_cascade(ctx: &SolveContext, env: &mut BacktrackEnv, depth: u32) {
 /// Scans uncovered cells once. Returns the strongest outcome found:
 /// `DeadCell` > `Unit` > `Branch` > `AllCovered`.
 fn scan_uncovered(ctx: &SolveContext, env: &mut BacktrackEnv) -> MrvOutcome {
+    let mut best_branch_cell: Option<(u16, u32)> = None;
+    let mut all_covered = true;
 
+    for &cell_idx in &env.cell_order {
+        if env.state.covered.test(cell_idx as usize) {
+            continue;
+        }
+        all_covered = false;
+
+        // Count valid placements for this cell.
+        let candidates = &ctx.cell_to_placements[cell_idx as usize];
+        let mut count: u32 = 0;
+        let mut first_valid: u32 = 0;
+
+        for &p_idx in candidates {
+            let pl = &ctx.placements[p_idx as usize];
+
+            if env.state.remaining[pl.type_idx as usize] == 0 {
+                continue;
+            }
+
+            if env.state.covered.has_overlap(&pl.bits) {
+                continue;
+            }
+
+            if count == 0 {
+                first_valid = p_idx;
+            }
+
+            count += 1;
+            if count >= 2 {
+                break;
+            }
+        }
+
+        if count == 0 {
+            return MrvOutcome::DeadCell;
+        }
+
+        if count == 1 {
+            return MrvOutcome::Unit { placement_idx: first_valid };
+        }
+
+        // count >= 2: candidate for branch. Track minimum.
+        match best_branch_cell {
+            Some((_, best_count)) if best_count <= count => {}
+            _ => {
+                best_branch_cell = Some((cell_idx, count));
+            }
+        }
+    }
+
+    if all_covered {
+        return MrvOutcome::AllCovered;
+    }
+
+    match best_branch_cell {
+        Some((cell_idx, _)) => MrvOutcome::Branch { cell_idx },
+        None => MrvOutcome::AllCovered
+    }
 }
 
 /// Returns `true` if applying `pl` will cause the `center_mark_type_remaining` counter to drop.
@@ -429,26 +602,127 @@ fn will_drop_center_mark_type(ctx: &SolveContext, state: &SearchState, pl: &Plac
 
 // ─── Public entry point ───────────────────────────────────────────────
 
+/// Builds the public stats object from internal counters.
+fn build_stats(env: &BacktrackEnv, seed: u64, elapsed_ms: u64, timed_out: bool) -> ExactCoverStats {
+    ExactCoverStats {
+        common: SolverStats {
+            node_count: env.total_nodes,
+            restarts: env.restarts,
+            unit_propagations: env.unit_propagations,
+            island_prunes: env.island_prunes,
+            dead_cell_prunes: env.dead_cell_prunes,
+            neighbor_prunes: env.neighbor_prunes,
+            parity_prunes: env.parity_prunes,
+            seed,
+            timed_out,
+            elapsed_ms
+        }
+    }
+}
+
+/// Reconstructs the wire-format solution from the search result stack.
+fn reconstruct_solution(ctx: &SolveContext, env: &BacktrackEnv, input: &ExactCoverInput) -> Solution {
+    // Build a map from def_id to a queue of input piece instances.
+    // Pop from each queue as that type is encountered in the result.
+    let mut instance_queues: HashMap<&str, VecDeque<&PieceInstanceJson>> = HashMap::new();
+    for piece in &input.common.pieces {
+        instance_queues
+            .entry(piece.def_id.as_str())
+            .or_default()
+            .push_back(piece);
+    }
+
+    let mut solution: Solution = Vec::with_capacity(env.state.result.len());
+    for &placement_idx in &env.state.result {
+        let pl = &ctx.placements[placement_idx];
+        let def_id = &ctx.type_ids[pl.type_idx as usize];
+        let instance = instance_queues
+            .get_mut(def_id.as_str())
+            .and_then(|q| q.pop_front())
+            .expect("solution references a piece not in input - bug in solver");
+
+        solution.push(SolutionPlacement {
+            piece: PieceInstanceJson {
+                def_id: instance.def_id.clone(),
+                index: instance.index
+            },
+            cells: pl.cells.clone(),
+            mark: pl.mark
+        });
+    }
+
+    solution
+}
+
+/// Solves an ExactCover problem.
+///
+/// Returns a [`ExactCoverResult`] containing either a solution and statistics,
+/// or `solution: None` if the search exhausted its budget
+/// (either timeout or the practical limit of restarts).
+///
+/// # Errors
+///
+/// Returns a [`SolverError`] if the input fails setup-time validation.
 pub fn solve_exact_cover(
     input: &ExactCoverInput,
     options: SolveOptions
 ) -> Result<ExactCoverResult> {
-    let _ctx = SolveContext::build(input)?;
+    let ctx = SolveContext::build(input)?;
     let seed = options.seed.unwrap_or_else(rand::random::<u64>);
+    let mut rng = make_rng(seed);
+    let mut env = BacktrackEnv::new(&ctx);
+    let mut luby = LubyIterator::new(options.luby_base);
+    let start_time = Instant::now();
 
-    Ok(ExactCoverResult {
-        solution: None,
-        stats: ExactCoverStats::empty(seed)
-    })
+    let mut found_solution = false;
+    let mut timed_out = false;
+
+    // First attempt with the initial cell ordering.
+    env.node_budget = luby.next().expect("Luby iterator never terminates");
+    if backtrack(&ctx, &mut env) {
+        found_solution = true;
+    }
+
+    // Restart loop. Exits on solution found or timeout.
+    while !found_solution {
+        // Check timeout before starting a new restart.
+        if let Some(timeout_ms) = options.timeout_ms {
+            if start_time.elapsed().as_millis() as u64 >= timeout_ms {
+                timed_out = true;
+                break;
+            }
+        }
+
+        env.restarts += 1;
+        let next_budget = luby.next().expect("Luby iterator never terminates");
+        env.reset_for_restart(&ctx, next_budget, &mut rng);
+
+        if backtrack(&ctx, &mut env) {
+            found_solution = true;
+        }
+    }
+
+    let elapsed_ms = start_time.elapsed().as_millis() as u64;
+
+    // Build stats from accumulated counters.
+    let stats = build_stats(&env, seed, elapsed_ms, timed_out);
+
+    let solution = if found_solution {
+        Some(reconstruct_solution(&ctx, &env, input))
+    } else {
+        None
+    };
+
+    Ok(ExactCoverResult { solution, stats })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::io::{PieceDefJson, PieceInstanceJson, SolverInput};
-
-    /// Build a tiny test input: 2x2 board, one 2x2 piece, center cell
-    /// at (0,0). Used to exercise SolveContext::build end-to-end.
+    use crate::io::SolverInput;
+    use crate::io::common::PieceDefJson;
+    
+    /// Build a tiny test input: 2x2 board, one 2x2 piece, center cell at (0,0).
     fn make_2x2_input() -> ExactCoverInput {
         ExactCoverInput {
             target_cells: vec![
@@ -484,14 +758,13 @@ mod tests {
         assert_eq!(ctx.type_ids, vec!["square".to_string()]);
         assert_eq!(ctx.type_counts, vec![1]);
         assert_eq!(ctx.size_of_type, vec![4]);
-        // 2x2 board: 2 black cells (0,0), (1,1) and 2 white cells (0,1), (1,0)
+
         assert_eq!(ctx.total_black, 2);
         assert_eq!(ctx.total_white, 2);
-        // The square has only one variant; b_count = 2.
+
         assert_eq!(ctx.type_min_black, vec![2]);
         assert_eq!(ctx.type_max_black, vec![2]);
-        // It should produce one placement (the one on the board), and
-        // since (0,0) is on center, mark_on_center is true.
+
         assert_eq!(ctx.placements.len(), 1);
         assert_eq!(ctx.center_mark_counts, vec![1]);
     }
@@ -499,13 +772,13 @@ mod tests {
     #[test]
     fn build_rejects_piece_cell_mismatch() {
         let mut input = make_2x2_input();
-        // Add a duplicate piece, doubling total_piece_cells but not target_cells.
         input.common.pieces.push(PieceInstanceJson {
             def_id: "square".to_string(),
             index: 1,
         });
 
         let result = SolveContext::build(&input);
+
         assert!(matches!(
             result,
             Err(SolverError::PieceCellMismatch { .. })
@@ -515,10 +788,10 @@ mod tests {
     #[test]
     fn build_rejects_no_center_mark_possible() {
         let mut input = make_2x2_input();
-        // Move center to a cell off the board.
         input.common.center_cells = vec!["99,99".to_string()];
 
         let result = SolveContext::build(&input);
+
         assert!(matches!(result, Err(SolverError::NoCenterMarkPossible)));
     }
 
@@ -526,14 +799,86 @@ mod tests {
     fn initial_center_mark_type_remaining_counts_correctly() {
         let input = make_2x2_input();
         let ctx = SolveContext::build(&input).unwrap();
+
         assert_eq!(ctx.initial_center_mark_type_remaining(), 1);
     }
 
     #[test]
-    fn solve_exact_cover_stub_returns_empty_result() {
-        // The stub returns no solution. Verifies plumbing is wired up.
+    fn solve_2x2_finds_unique_solution() {
         let input = make_2x2_input();
-        let result = solve_exact_cover(&input, SolveOptions::default()).unwrap();
-        assert!(result.solution.is_none());
+        let options = SolveOptions {
+            seed: Some(42),
+            ..Default::default()
+        };
+        let result = solve_exact_cover(&input, options).unwrap();
+
+        assert!(result.solution.is_some(), "expected a solution");
+
+        let sol = result.solution.unwrap();
+
+        assert_eq!(sol.len(), 1);
+        assert_eq!(sol[0].piece.def_id, "square");
+        assert_eq!(sol[0].cells.len(), 4);
+
+        assert_eq!(sol[0].mark, (0, 0));
+
+        assert!(result.stats.common.node_count >= 1);
+        assert_eq!(result.stats.common.timed_out, false);
+        assert_eq!(result.stats.common.seed, 42);
+    }
+
+    #[test]
+    fn solve_with_two_pieces_finds_solution() {
+        let input = ExactCoverInput {
+            target_cells: vec![
+                "0,0".to_string(),
+                "0,1".to_string(),
+                "1,0".to_string(),
+                "1,1".to_string(),
+            ],
+            common: SolverInput {
+                pieces: vec![
+                    PieceInstanceJson {
+                        def_id: "domino".to_string(),
+                        index: 0,
+                    },
+                    PieceInstanceJson {
+                        def_id: "domino".to_string(),
+                        index: 1,
+                    },
+                ],
+                piece_defs: vec![(
+                    "domino".to_string(),
+                    PieceDefJson {
+                        id: "domino".to_string(),
+                        cells: vec![(0, 0), (0, 1)],
+                        mark_index: 0,
+                    },
+                )],
+                center_cells: vec!["0,0".to_string()],
+            },
+        };
+
+        let options = SolveOptions {
+            seed: Some(7),
+            ..Default::default()
+        };
+        let result = solve_exact_cover(&input, options).unwrap();
+
+        assert!(result.solution.is_some());
+
+        let sol = result.solution.unwrap();
+
+        assert_eq!(sol.len(), 2);
+
+        let mut covered = std::collections::HashSet::new();
+        for placement in &sol {
+            for &cell in &placement.cells {
+                assert!(covered.insert(cell), "cell {cell:?} covered twice");
+            }
+        }
+
+        assert_eq!(covered.len(), 4);
+        assert!(sol.iter().any(|p| p.mark == (0, 0)));
     }
 }

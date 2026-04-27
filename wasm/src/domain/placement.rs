@@ -31,6 +31,7 @@ pub struct Placement {
 impl Placement {
     /// Returns the number of cells this placement covers.
     #[inline]
+    #[allow(dead_code)]
     pub fn size(&self) -> usize {
         self.cell_indices.len()
     }

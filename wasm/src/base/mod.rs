@@ -8,6 +8,3 @@ mod rng;
 
 pub(crate) use bitset::{BitSet, CAPACITY};
 pub(crate) use rng::{LubyIterator, SolverRng, make_rng, shuffle};
-
-#[cfg(test)]
-pub(crate) use bitset::WORDS;

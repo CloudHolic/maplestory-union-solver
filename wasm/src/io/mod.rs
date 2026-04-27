@@ -5,7 +5,7 @@
 
 pub mod input;
 pub mod output;
-mod common;
+pub(crate) mod common;
 
 pub use input::{ExactCoverInput, GroupConstraintJson, GroupCountInput};
 pub use output::{
@@ -13,4 +13,4 @@ pub use output::{
     ExactCoverResult, ExactCoverStats,
     GroupCountResult, GroupCountStats,
 };
-pub(crate) use common::{PieceDefJson, PieceInstanceJson, SolverInput, SolverStats, parse_cell_key};
+pub(crate) use common::{PieceInstanceJson, SolverInput, SolverStats, parse_cell_key};

@@ -41,12 +41,6 @@ impl BitSet {
         self.words[index >> 5] |= 1 << (index & 31);
     }
 
-    /// Clears bit `index` to 0.
-    pub fn clear(&mut self, index: usize) {
-        debug_assert!(index < CAPACITY, "bit index {index} out of range");
-        self.words[index >> 5] &= !(1 << (index & 31));
-    }
-
     /// Returns `true` if `self` and `other` share any bit.
     #[inline]
     pub fn has_overlap(&self, other: &BitSet) -> bool {
@@ -75,12 +69,14 @@ impl BitSet {
 
     /// Total number of set bits.
     #[inline]
+    #[allow(dead_code)]
     pub fn count_ones(&self) -> u32 {
         self.words.iter().map(|w| w.count_ones()).sum()
     }
 
     /// Returns `true` if no bits are set.
     #[inline]
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.words.iter().all(|&w| w == 0)
     }
@@ -134,16 +130,6 @@ mod tests {
             assert!(bs.test(i), "bit {i} should be set");
         }
         assert_eq!(bs.count_ones(), 7);
-    }
-
-    #[test]
-    fn clear_individual_bit() {
-        let mut bs = BitSet::new();
-        bs.set(42);
-        bs.set(43);
-        bs.clear(42);
-        assert!(!bs.test(42));
-        assert!(bs.test(43));
     }
 
     #[test]
