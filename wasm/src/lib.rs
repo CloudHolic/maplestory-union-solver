@@ -15,7 +15,9 @@ mod solver;
 pub use domain::{Coord, PieceDef};
 pub use error::{Result, SolverError};
 pub use io::{
-    ExactCoverInput, ExactCoverResult, ExactCoverStats, GroupConstraintJson, GroupCountInput,
-    GroupCountResult, GroupCountStats, Solution, SolutionPlacement,
+    SolverInput, SolverStats,
+    ExactCoverInput, ExactCoverResult, ExactCoverStats,
+    GroupConstraintJson, GroupCountInput, GroupCountResult, GroupCountStats,
+    PieceInstanceJson, Solution, SolutionPlacement
 };
 pub use solver::{SolveOptions, solve_exact_cover};

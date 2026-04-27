@@ -9,16 +9,16 @@ use rand::RngExt;
 use rand_xoshiro::Xoshiro256PlusPlus;
 
 /// PRNG type used throughout the solver.
-pub type SolverRng = Xoshiro256PlusPlus;
+pub(crate) type SolverRng = Xoshiro256PlusPlus;
 
 /// Constructs a seeded PRNG.
 #[inline]
-pub fn make_rng(seed: u64) -> SolverRng {
+pub(crate) fn make_rng(seed: u64) -> SolverRng {
     Xoshiro256PlusPlus::seed_from_u64(seed)
 }
 
 /// Iterator over the Luby sequence, scaled by a base.
-pub struct LubyIterator {
+pub(crate) struct LubyIterator {
     base: u64,
 
     /// The Luby state pair `(u, v)` per the Knuth/Luby formulation:
@@ -31,7 +31,7 @@ pub struct LubyIterator {
 impl LubyIterator {
     /// Creates a new iterator that emits `base * t_i` where `t_i` is
     /// the i-th term of the Luby sequence (1-indexed).
-    pub fn new(base: u64) -> Self {
+    pub(crate) fn new(base: u64) -> Self {
         assert!(base > 0, "Luby base must be positive");
         Self { base, u: 1, v: 1 }
     }
@@ -56,7 +56,7 @@ impl Iterator for LubyIterator {
 }
 
 /// In-place Fisher-Yates shuffle of `arr` using `rng`.
-pub fn shuffle<T>(arr: &mut [T], rng: &mut SolverRng) {
+pub(crate) fn shuffle<T>(arr: &mut [T], rng: &mut SolverRng) {
     let n = arr.len();
     if n < 2 {
         return;

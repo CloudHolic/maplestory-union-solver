@@ -27,7 +27,7 @@ use crate::domain::placement::Placement;
 /// - `result`: stack of currently-applied placement indices, in apply order.
 ///    A complete solution is the contents of this stack.
 #[derive(Debug)]
-pub struct SearchState {
+pub(crate) struct SearchState {
     pub(crate) covered: BitSet,
     pub(crate) remaining: Vec<u16>,
     pub(crate) covered_count: u16,
@@ -40,7 +40,7 @@ pub struct SearchState {
 impl SearchState {
     /// Creates an empty state for a problem with `num_types` piece types
     /// and `type_counts[i]` instances of each type.
-    pub fn new(type_counts: Vec<u16>, center_mark_type_remaining: u16) -> Self {
+    pub(crate) fn new(type_counts: Vec<u16>, center_mark_type_remaining: u16) -> Self {
         Self {
             covered: BitSet::new(),
             remaining: type_counts,
@@ -53,7 +53,7 @@ impl SearchState {
     }
 
     /// Resets the state to "no placements applied".
-    pub fn reset(&mut self, type_counts: &[u16], center_mark_type_remaining: u16) {
+    pub(crate) fn reset(&mut self, type_counts: &[u16], center_mark_type_remaining: u16) {
         self.covered.reset();
         self.remaining.clear();
         self.remaining.extend_from_slice(type_counts);
@@ -67,13 +67,13 @@ impl SearchState {
     /// Returns `true` if no piece type with at least one remaining instance
     /// can satisfy the center-mark constraint.
     #[inline]
-    pub fn center_mark_unreachable(&self) -> bool {
+    pub(crate) fn center_mark_unreachable(&self) -> bool {
         !self.has_center_mark && self.center_mark_type_remaining == 0
     }
 
     /// Returns `true` if `count` cells are covered.
     #[inline]
-    pub fn is_fully_covered(&self, target_count: u16) -> bool {
+    pub(crate) fn is_fully_covered(&self, target_count: u16) -> bool {
         self.covered_count == target_count
     }
 
@@ -87,7 +87,7 @@ impl SearchState {
     /// - `placement_index` is the index of this placement in the solver's flat placement list,
     ///    used for solution reconstruction.
     #[inline]
-    pub fn apply_placement(
+    pub(crate) fn apply_placement(
         &mut self,
         pl: &Placement,
         placement_index: usize,
@@ -129,7 +129,7 @@ impl SearchState {
     }
 
     /// Undoes the most recent `apply_placement` call.
-    pub fn undo_placement(&mut self, pl: &Placement, undo: PlacementUndo) {
+    pub(crate) fn undo_placement(&mut self, pl: &Placement, undo: PlacementUndo) {
         debug_assert!(
             self.result.last().is_some(),
             "undo_placement: result stack is unexpectedly empty"
@@ -155,7 +155,7 @@ impl SearchState {
 /// - `center_mark_type_drop`: whether this apply caused the `center_mark_type_remaining`
 ///    counter to decrement.
 #[derive(Debug, Clone, Copy)]
-pub struct PlacementUndo {
+pub(crate) struct PlacementUndo {
     pub(crate) prev_has_center_mark: bool,
     pub(crate) center_mark_type_drop: bool
 }

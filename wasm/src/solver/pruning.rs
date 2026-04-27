@@ -18,7 +18,7 @@ use crate::solver::SearchState;
 ///
 /// `island_check` performs a BFS and a subset-sum DP. The buffers grow but never shrink,
 /// so steady-state allocation is 0.
-pub struct IslandWorkspace {
+pub(crate) struct IslandWorkspace {
     /// `visited[i]` is non-zero when call `i` has been seen by BFS in the current call.
     pub visited: Vec<u8>,
 
@@ -35,7 +35,7 @@ pub struct IslandWorkspace {
 
 impl IslandWorkspace {
     /// Allocates buffers sized for `total_cells` board cells.
-    pub fn new(total_cells: usize) -> Self {
+    pub(crate) fn new(total_cells: usize) -> Self {
         Self {
             visited: vec![0; total_cells],
             stack: Vec::with_capacity(total_cells),
@@ -63,7 +63,7 @@ impl IslandWorkspace {
 /// Returns `true` if the remaining-pieces contribution range to black cells
 /// overlaps the required range of black cells still to cover.
 #[inline]
-pub fn parity_check(
+pub(crate) fn parity_check(
     state: &SearchState,
     total_black: u16,
     total_white: u16,
@@ -103,7 +103,7 @@ pub fn parity_check(
 /// - `total_cells`: the total board cell count, used to bound the subset-sum DP range.
 ///
 /// Returns `true` if the subtree may still be feasible.
-pub fn island_check(
+pub(crate) fn island_check(
     state: &SearchState,
     adj_list: &[Vec<u16>],
     size_of_type: &[u8],
@@ -207,7 +207,7 @@ pub fn island_check(
 ///
 /// If any neighbor cell has zero such coverings, returns `false`.
 #[inline]
-pub fn neighbor_check(
+pub(crate) fn neighbor_check(
     pl: &Placement,
     state: &SearchState,
     cell_to_placements: &[Vec<u32>],

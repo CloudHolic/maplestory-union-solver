@@ -10,11 +10,11 @@
 use std::collections::HashMap;
 
 use crate::base::{BitSet, CAPACITY};
-use crate::domain::{Coord, PieceDef, all_variants, Placement};
+use crate::domain::{Coord, PieceDef, PieceVariant, all_variants, Placement};
 use crate::error::{Result, SolverError};
 
 /// Board geometry shared by the solver and the enumerator.
-pub struct BoardLayout {
+pub(crate) struct BoardLayout {
     pub cells: Vec<Coord>,
     pub coord_to_idx: HashMap<Coord, u16>,
     pub center_cells: Vec<Coord>,
@@ -23,7 +23,7 @@ pub struct BoardLayout {
 
 impl BoardLayout {
     /// Builds a board layout from a list of cell coordinates and the center region.
-    pub fn new(cells: Vec<Coord>, center_cells: Vec<Coord>) -> Result<Self> {
+    pub(crate) fn new(cells: Vec<Coord>, center_cells: Vec<Coord>) -> Result<Self> {
         if cells.len() > CAPACITY {
             return Err(SolverError::BoardTooLarge {
                 actual: cells.len(),
@@ -53,12 +53,12 @@ pub struct PieceInstance {
 }
 
 /// Enumerates all legal placements for every piece instance.
-pub fn enumerate_all_placements(
+pub(crate) fn enumerate_all_placements(
     pieces: &[PieceInstance],
     piece_defs: &HashMap<String, PieceDef>,
     board: &BoardLayout
 ) -> Result<Vec<Placement>> {
-    let mut variant_cache: HashMap<&str, Vec<crate::domain::piece::PieceVariant>> = HashMap::new();
+    let mut variant_cache: HashMap<&str, Vec<PieceVariant>> = HashMap::new();
     let mut placements: Vec<Placement> = Vec::new();
     let center_set: std::collections::HashSet<Coord> =
         board.center_cells.iter().copied().collect();
@@ -85,7 +85,7 @@ pub fn enumerate_all_placements(
 /// Enumerate all anchor positions for a single variant and appends successful placements to `out`.
 fn enumerate_variant(
     piece: &PieceInstance,
-    variant: &crate::domain::piece::PieceVariant,
+    variant: &PieceVariant,
     board: &BoardLayout,
     center_set: &std::collections::HashSet<Coord>,
     out: &mut Vec<Placement>

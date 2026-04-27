@@ -3,8 +3,8 @@
 
 //! External interface types for JSON I/O.
 
-pub mod input;
-pub mod output;
+pub(crate) mod input;
+pub(crate) mod output;
 pub(crate) mod common;
 
 pub use input::{ExactCoverInput, GroupConstraintJson, GroupCountInput};
@@ -13,4 +13,5 @@ pub use output::{
     ExactCoverResult, ExactCoverStats,
     GroupCountResult, GroupCountStats,
 };
-pub(crate) use common::{PieceInstanceJson, SolverInput, SolverStats, parse_cell_key};
+pub use common::{PieceInstanceJson, SolverInput, SolverStats};
+pub(crate) use common::parse_cell_key;

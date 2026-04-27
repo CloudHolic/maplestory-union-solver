@@ -721,7 +721,7 @@ mod tests {
     use super::*;
     use crate::io::SolverInput;
     use crate::io::common::PieceDefJson;
-    
+
     /// Build a tiny test input: 2x2 board, one 2x2 piece, center cell at (0,0).
     fn make_2x2_input() -> ExactCoverInput {
         ExactCoverInput {

@@ -17,7 +17,7 @@ use crate::domain::Coord;
 
 /// A pice variant placed at a specific board location.
 #[derive(Debug, Clone)]
-pub struct Placement {
+pub(crate) struct Placement {
     pub type_idx: u16,
     pub bits: BitSet,
     pub neighbor_bits: BitSet,
@@ -32,7 +32,7 @@ impl Placement {
     /// Returns the number of cells this placement covers.
     #[inline]
     #[allow(dead_code)]
-    pub fn size(&self) -> usize {
+    pub(crate) fn size(&self) -> usize {
         self.cell_indices.len()
     }
 }

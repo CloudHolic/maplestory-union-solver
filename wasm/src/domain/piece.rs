@@ -30,13 +30,13 @@ pub struct PieceDef {
 /// - The minimum row and column are both 0.
 /// - Cells are sorted in row-major order.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PieceVariant {
+pub(crate) struct PieceVariant {
     pub cells: Vec<Coord>,
     pub mark: Coord
 }
 
 /// Returns all distinct rotation+reflection variants of `def`.
-pub fn all_variants(def: &PieceDef) -> Vec<PieceVariant> {
+pub(crate) fn all_variants(def: &PieceDef) -> Vec<PieceVariant> {
     debug_assert!(
         def.mark_index < def.cells.len(),
         "mark_index {} out of range for piece with {} cells",

@@ -9,41 +9,41 @@
 
 
 /// Number of `u32` words in a `BitSet`.
-pub const WORDS: usize = 7;
+const WORDS: usize = 7;
 
 /// Total number of bits the set can represent.
-pub const CAPACITY: usize = WORDS * 32;
+pub(crate) const CAPACITY: usize = WORDS * 32;
 
 /// Fixed-size bitset over `CAPACITY` bits.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
-pub struct BitSet {
+pub(crate) struct BitSet {
     words: [u32; WORDS]
 }
 
 impl BitSet {
     /// Returns an empty bitset.
     #[inline]
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self { words: [0; WORDS] }
     }
 
     /// Returns `true` if bit `index` is set.
     #[inline]
-    pub fn test(&self, index: usize) -> bool {
+    pub(crate) fn test(&self, index: usize) -> bool {
         debug_assert!(index < CAPACITY, "bit index {index} out of range");
         (self.words[index >> 5] & (1 << (index & 31))) != 0
     }
 
     /// Sets bit `index` to 1.
     #[inline]
-    pub fn set(&mut self, index: usize) {
+    pub(crate) fn set(&mut self, index: usize) {
         debug_assert!(index < CAPACITY, "bit index {index} out of range");
         self.words[index >> 5] |= 1 << (index & 31);
     }
 
     /// Returns `true` if `self` and `other` share any bit.
     #[inline]
-    pub fn has_overlap(&self, other: &BitSet) -> bool {
+    pub(crate) fn has_overlap(&self, other: &BitSet) -> bool {
         self.words
             .iter()
             .zip(other.words.iter())
@@ -52,7 +52,7 @@ impl BitSet {
 
     /// In-place bitwise OR: `self |= other`
     #[inline]
-    pub fn apply(&mut self, other: &BitSet) {
+    pub(crate) fn apply(&mut self, other: &BitSet) {
         for (a, b) in self.words.iter_mut().zip(other.words.iter()) {
             *a |= *b;
         }
@@ -61,7 +61,7 @@ impl BitSet {
     /// In-place bitwise AND-NOT: `self &= !other`
     /// Used to undo a placement: `state.clear_bits(&placement.bits)`.
     #[inline]
-    pub fn clear_bits(&mut self, other: &BitSet) {
+    pub(crate) fn clear_bits(&mut self, other: &BitSet) {
         for (a, b) in self.words.iter_mut().zip(other.words.iter()) {
             *a &= !*b;
         }
@@ -70,20 +70,20 @@ impl BitSet {
     /// Total number of set bits.
     #[inline]
     #[allow(dead_code)]
-    pub fn count_ones(&self) -> u32 {
+    pub(crate) fn count_ones(&self) -> u32 {
         self.words.iter().map(|w| w.count_ones()).sum()
     }
 
     /// Returns `true` if no bits are set.
     #[inline]
     #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.words.iter().all(|&w| w == 0)
     }
 
     /// Resets all bits to 0.
     #[inline]
-    pub fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.words = [0; WORDS];
     }
 }
