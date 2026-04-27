@@ -5,11 +5,12 @@
 //! See `docs/algorithms/exact-cover.md`, `docs/algorithms/group-count.md`
 //! for the algorithmic background.
 
-mod base;
-mod solver;
 pub mod domain;
 pub mod error;
 pub mod io;
+
+mod base;
+mod solver;
 
 pub use domain::{Coord, PieceDef};
 pub use error::{Result, SolverError};
@@ -17,3 +18,4 @@ pub use io::{
     ExactCoverInput, ExactCoverResult, ExactCoverStats, GroupConstraintJson, GroupCountInput,
     GroupCountResult, GroupCountStats, Solution, SolutionPlacement,
 };
+pub use solver::{SolveOptions, solve_exact_cover};

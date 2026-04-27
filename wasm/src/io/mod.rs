@@ -5,7 +5,7 @@
 
 pub mod input;
 pub mod output;
-pub(crate) mod common;
+mod common;
 
 pub use input::{ExactCoverInput, GroupConstraintJson, GroupCountInput};
 pub use output::{

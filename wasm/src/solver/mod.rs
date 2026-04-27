@@ -3,7 +3,10 @@
 
 //! Solver-specific logic.
 
-pub(crate) mod pruning;
-pub(crate) mod state;
+mod exact_cover;
+mod pruning;
+mod state;
 
-pub(crate) use state::SearchState;
+pub use exact_cover::{SolveOptions, solve_exact_cover};
+pub(crate) use pruning::{IslandWorkspace, island_check, neighbor_check, parity_check};
+pub(crate) use state::{SearchState, PlacementUndo};

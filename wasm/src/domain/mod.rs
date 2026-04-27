@@ -8,6 +8,6 @@ pub(crate) mod enumerate;
 pub(crate) mod placement;
 
 pub use piece::{Coord, PieceDef};
-pub(crate) use enumerate::{BoardLayout, enumerate_all_placements};
+pub(crate) use enumerate::{BoardLayout, PieceInstance, enumerate_all_placements};
 pub(crate) use piece::{all_variants};
 pub(crate) use placement::Placement;
