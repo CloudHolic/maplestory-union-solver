@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Fixed-size bitset for tracking covered cells and placement footprints.
 //!

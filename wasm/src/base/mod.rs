@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Algorithm-agnostic primitives.
+//!
+//! This module contains data structures and utilities that have no
+//! knowledge of the Union problem domain. They are crate-internal
+//! implementation details.
 
-pub mod bitset;
-pub mod rng;
+mod bitset;
+mod rng;
 
-pub use bitset::{BitSet, CAPACITY, WORDS};
-pub use rng::{LubyIterator, SolverRng, shuffle};
+pub(crate) use bitset::{BitSet, CAPACITY};
+pub(crate) use rng::{LubyIterator, SolverRng, make_rng, shuffle};
+
+#[cfg(test)]
+pub(crate) use bitset::WORDS;

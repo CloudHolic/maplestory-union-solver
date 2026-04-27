@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Outputs for the solvers.
 
 use serde::Serialize;
 
-use crate::domain::piece::Coord;
-use crate::io::common::{PieceInstanceJson, SolverStats};
+use crate::domain::Coord;
+use crate::io::{PieceInstanceJson, SolverStats};
 
 /// A complete solution: ordered list of placements.
 pub type Solution = Vec<SolutionPlacement>;

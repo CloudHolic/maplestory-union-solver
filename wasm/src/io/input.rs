@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Input types for the solvers, deserialized from JSON.
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::piece::Coord;
+use crate::domain::Coord;
 use crate::error::Result;
-use crate::io::common::{SolverInput, parse_cell_key};
+use crate::io::{SolverInput, parse_cell_key};
 
 /// One group constraint for the GroupCount solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Wire-format types shared by both solver variants.
 
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::piece::{Coord, PieceDef};
+use crate::domain::{Coord, PieceDef};
 use crate::error::{Result, SolverError};
 
 /// Wire format for [`PieceDef`].

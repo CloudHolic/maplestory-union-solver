@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Placement enumeration.
 //!
@@ -10,8 +10,7 @@
 use std::collections::HashMap;
 
 use crate::base::{BitSet, CAPACITY};
-use crate::domain::piece::{Coord, PieceDef, all_variants};
-use crate::domain::placement::Placement;
+use crate::domain::{Coord, PieceDef, all_variants, Placement};
 use crate::error::{Result, SolverError};
 
 /// Board geometry shared by the solver and the enumerator.
@@ -59,7 +58,7 @@ pub fn enumerate_all_placements(
     piece_defs: &HashMap<String, PieceDef>,
     board: &BoardLayout
 ) -> Result<Vec<Placement>> {
-    let mut variant_cache: HashMap<&str, Vec<crate::domain::PieceVariant>> = HashMap::new();
+    let mut variant_cache: HashMap<&str, Vec<crate::domain::piece::PieceVariant>> = HashMap::new();
     let mut placements: Vec<Placement> = Vec::new();
     let center_set: std::collections::HashSet<Coord> =
         board.center_cells.iter().copied().collect();
@@ -86,7 +85,7 @@ pub fn enumerate_all_placements(
 /// Enumerate all anchor positions for a single variant and appends successful placements to `out`.
 fn enumerate_variant(
     piece: &PieceInstance,
-    variant: &crate::domain::PieceVariant,
+    variant: &crate::domain::piece::PieceVariant,
     board: &BoardLayout,
     center_set: &std::collections::HashSet<Coord>,
     out: &mut Vec<Placement>

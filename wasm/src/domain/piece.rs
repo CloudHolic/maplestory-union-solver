@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Piece shapes and their geometric variants.
 //!
@@ -12,7 +12,6 @@
 //! are sorted in row-major order.
 //! Pieces with rotational or reflective symmetry produce fewer than eight variants
 //! because duplicates are collapsed.
-
 
 use std::collections::HashSet;
 

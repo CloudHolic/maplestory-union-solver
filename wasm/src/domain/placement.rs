@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Concrete piece placements on the board.
 //!
@@ -13,7 +13,7 @@
 //! They are immutable thereafter.
 
 use crate::base::BitSet;
-use crate::domain::piece::Coord;
+use crate::domain::Coord;
 
 /// A pice variant placed at a specific board location.
 #[derive(Debug, Clone)]

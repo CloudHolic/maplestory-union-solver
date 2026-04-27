@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-// Copyright (C) 2026 Cloudholic
+// Copyright (C) 2026 CloudHolic
 
 //! Mutable search state during backtracking.
 //!
 //! Encapsulates all fields that change as placements are applied and undone.
 
 use crate::base::BitSet;
-use crate::domain::Placement;
+use crate::domain::placement::Placement;
 
 /// Mutable state during backtracking search.
 /// - `covered`: which board cells are currently occupied by some placement.
