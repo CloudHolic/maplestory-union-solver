@@ -2,10 +2,6 @@
 // Copyright (C) 2026 CloudHolic
 
 //! Problem-domain types for the Union placement puzzle.
-//!
-//! [`PieceDef`] is part of the public API; the variant/placement
-//! enumeration types are crate-internal and exist only to feed the
-//! solver.
 
 pub mod piece;
 pub(crate) mod enumerate;

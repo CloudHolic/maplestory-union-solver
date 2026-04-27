@@ -2,10 +2,6 @@
 // Copyright (C) 2026 CloudHolic
 
 //! External interface types for JSON I/O.
-//!
-//! Two solver variants share a common skeleton (pieces, piece defs,
-//! center cells, base statistics) but each defines its own input fields
-//! (target cells vs group constraints) and stats extensions.
 
 pub mod input;
 pub mod output;

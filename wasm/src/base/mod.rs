@@ -2,10 +2,6 @@
 // Copyright (C) 2026 CloudHolic
 
 //! Algorithm-agnostic primitives.
-//!
-//! This module contains data structures and utilities that have no
-//! knowledge of the Union problem domain. They are crate-internal
-//! implementation details.
 
 mod bitset;
 mod rng;
