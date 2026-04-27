@@ -2,13 +2,14 @@
 // Copyright (C) 2026 Cloudholic
 
 //! MapleStory Union placement solver.
-//! See 'docs/algorithms/exact-cover.md' for the algorithmic background.
+//! See `docs/algorithms/exact-cover.md`, `docs/algorithms/group-count.md`
+//! for the algorithmic background.
 
 pub mod base;
 pub mod domain;
 pub mod error;
 pub mod io;
-// pub mod solver;
+pub mod solver;
 
 
 // Public API re-exports.
@@ -18,4 +19,3 @@ pub use io::{
     ExactCoverInput, ExactCoverResult, ExactCoverStats,
     GroupCountInput, GroupCountResult, GroupCountStats
 };
-

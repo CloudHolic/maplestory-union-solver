@@ -4,5 +4,7 @@
 //! Algorithm-agnostic primitives.
 
 pub mod bitset;
+pub mod rng;
 
 pub use bitset::{BitSet, CAPACITY, WORDS};
+pub use rng::{LubyIterator, SolverRng, shuffle};
