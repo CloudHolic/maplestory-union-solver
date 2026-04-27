@@ -18,6 +18,6 @@ pub use io::{
     SolverInput, SolverStats,
     ExactCoverInput, ExactCoverResult, ExactCoverStats,
     GroupConstraintJson, GroupCountInput, GroupCountResult, GroupCountStats,
-    PieceInstanceJson, Solution, SolutionPlacement
+    PieceInstanceJson, PieceDefJson, Solution, SolutionPlacement
 };
 pub use solver::{SolveOptions, solve_exact_cover};

@@ -13,5 +13,5 @@ pub use output::{
     ExactCoverResult, ExactCoverStats,
     GroupCountResult, GroupCountStats,
 };
-pub use common::{PieceInstanceJson, SolverInput, SolverStats};
+pub use common::{PieceDefJson, PieceInstanceJson, SolverInput, SolverStats};
 pub(crate) use common::parse_cell_key;
