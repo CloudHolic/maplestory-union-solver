@@ -8,13 +8,13 @@
 //! the 201-cell Union board with margin.
 
 
-/// Number of 'u32' words in a 'BitSet'.
+/// Number of `u32` words in a `BitSet`.
 pub const WORDS: usize = 7;
 
 /// Total number of bits the set can represent.
 pub const CAPACITY: usize = WORDS * 32;
 
-/// Fixed-size bitset over 'CAPACITY' bits.
+/// Fixed-size bitset over `CAPACITY` bits.
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct BitSet {
     words: [u32; WORDS]
@@ -27,27 +27,27 @@ impl BitSet {
         Self { words: [0; WORDS] }
     }
 
-    /// Returns 'true' if bit 'index' is set.
+    /// Returns `true` if bit `index` is set.
     #[inline]
     pub fn test(&self, index: usize) -> bool {
         debug_assert!(index < CAPACITY, "bit index {index} out of range");
         (self.words[index >> 5] & (1 << (index & 31))) != 0
     }
 
-    /// Sets bit 'index' to 1.
+    /// Sets bit `index` to 1.
     #[inline]
     pub fn set(&mut self, index: usize) {
         debug_assert!(index < CAPACITY, "bit index {index} out of range");
         self.words[index >> 5] |= 1 << (index & 31);
     }
 
-    /// Clears bit 'index' to 0.
+    /// Clears bit `index` to 0.
     pub fn clear(&mut self, index: usize) {
         debug_assert!(index < CAPACITY, "bit index {index} out of range");
         self.words[index >> 5] &= !(1 << (index & 31));
     }
 
-    /// Returns 'true' if 'self' and 'other' share any bit.
+    /// Returns `true` if `self` and `other` share any bit.
     #[inline]
     pub fn has_overlap(&self, other: &BitSet) -> bool {
         self.words
@@ -56,7 +56,7 @@ impl BitSet {
             .any(|(a, b)| (a & b) != 0)
     }
 
-    /// In-place bitwise OR: 'self |= other'
+    /// In-place bitwise OR: `self |= other`
     #[inline]
     pub fn apply(&mut self, other: &BitSet) {
         for (a, b) in self.words.iter_mut().zip(other.words.iter()) {
@@ -64,8 +64,8 @@ impl BitSet {
         }
     }
 
-    /// In-place bitwise AND-NOT: 'self &= !other'
-    /// Used to undo a placement: 'state.clear_bits(&placement.bits)'.
+    /// In-place bitwise AND-NOT: `self &= !other`
+    /// Used to undo a placement: `state.clear_bits(&placement.bits)`.
     #[inline]
     pub fn clear_bits(&mut self, other: &BitSet) {
         for (a, b) in self.words.iter_mut().zip(other.words.iter()) {
@@ -79,7 +79,7 @@ impl BitSet {
         self.words.iter().map(|w| w.count_ones()).sum()
     }
 
-    /// Returns 'true' if no bits are set.
+    /// Returns `true` if no bits are set.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.words.iter().all(|&w| w == 0)

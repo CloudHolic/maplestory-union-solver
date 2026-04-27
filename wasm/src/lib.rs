@@ -7,10 +7,15 @@
 pub mod base;
 pub mod domain;
 pub mod error;
-// pub mod io;
+pub mod io;
 // pub mod solver;
 
 
 // Public API re-exports.
 pub use error::{Result, SolverError};
+pub use io::{
+    Solution, SolutionPlacement,
+    ExactCoverInput, ExactCoverResult, ExactCoverStats,
+    GroupCountInput, GroupCountResult, GroupCountStats
+};
 

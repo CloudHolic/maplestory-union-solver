@@ -4,7 +4,7 @@
 //! Placement enumeration.
 //!
 //! Given a board layout (set of valid cells with assigned indices) and
-//! a collection of piece definitions, produces every legal ['Placement']
+//! a collection of piece definitions, produces every legal [`Placement`]
 //! along with all precomputed information the solver needs at decision time.
 
 use std::collections::HashMap;
@@ -39,7 +39,7 @@ impl BoardLayout {
 
         let cell_color = cells
             .iter()
-            .map(|&(r, c)| ((r + c).rem_euclid(2)) as u8)
+            .map(|&(r, c)| (r + c).rem_euclid(2) as u8)
             .collect();
 
         Ok(Self { cells, coord_to_idx, center_cells, cell_color })
@@ -83,7 +83,7 @@ pub fn enumerate_all_placements(
     Ok(placements)
 }
 
-/// Enumerate all anchor positions for a single variant and appends successful placements to 'out'.
+/// Enumerate all anchor positions for a single variant and appends successful placements to `out`.
 fn enumerate_variant(
     piece: &PieceInstance,
     variant: &crate::domain::PieceVariant,
@@ -140,7 +140,7 @@ fn enumerate_variant(
 
 /// Builds the bitset of board cells adjacent to the placement.
 ///
-/// A cell is in 'neighbor_bits' iff:
+/// A cell is in `neighbor_bits` iff:
 /// - It is a valid board cell, and
 /// - It is orthogonally adjacent to at least one placement cell, and
 /// - It is not itself a placement cell.

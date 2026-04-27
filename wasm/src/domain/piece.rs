@@ -3,11 +3,11 @@
 
 //! Piece shapes and their geometric variants.
 //!
-//! A 'PieceDef' is the canonical description of a piece in the game data
+//! A `PieceDef` is the canonical description of a piece in the game data
 //! (a polyomino shape with a designated mark cell).
-//! A 'PieceVariant' is a normalized rotation+reflection of that shape.
+//! A `PieceVariant` is a normalized rotation+reflection of that shape.
 //!
-//! 'all_variants' returns the up-to-eight distinct variants of a piece,
+//! `all_variants` returns the up-to-eight distinct variants of a piece,
 //! each normalized so that the bounding box starts at (0, 0) and cells
 //! are sorted in row-major order.
 //! Pieces with rotational or reflective symmetry produce fewer than eight variants
@@ -16,7 +16,7 @@
 
 use std::collections::HashSet;
 
-/// Grid coordinate as '(row, column)'.
+/// Grid coordinate as `(row, column)`.
 pub type Coord = (i8, i8);
 
 /// Static definition of a piece shape.
@@ -36,7 +36,7 @@ pub struct PieceVariant {
     pub mark: Coord
 }
 
-/// Returns all distinct rotation+reflection variants of 'def'.
+/// Returns all distinct rotation+reflection variants of `def`.
 pub fn all_variants(def: &PieceDef) -> Vec<PieceVariant> {
     debug_assert!(
         def.mark_index < def.cells.len(),
@@ -76,19 +76,19 @@ pub fn all_variants(def: &PieceDef) -> Vec<PieceVariant> {
     variants
 }
 
-/// Rotates each cell 90 degrees clockwise: '(r, c) -> (c, -r)'
+/// Rotates each cell 90 degrees clockwise: `(r, c) -> (c, -r)`
 fn rotate90(cells: &[Coord]) -> Vec<Coord> {
     cells.iter().map(|&(r, c)| (c, -r)).collect()
 }
 
-/// Reflects each cell across the row axis: '(r, c) -> (r, -c)'
+/// Reflects each cell across the row axis: `(r, c) -> (r, -c)`
 fn reflect(cells: &[Coord]) -> Vec<Coord> {
     cells.iter().map(|&(r, c)| (r, -c)).collect()
 }
 
-/// Translates 'cells' so the minimum row and column are both 0,
-/// applies the same translation to 'mark', and sorts cells row-major.
-/// Returns '(normalized_cells, normalized_mark)'
+/// Translates `cells` so the minimum row and column are both 0,
+/// applies the same translation to `mark`, and sorts cells row-major.
+/// Returns `(normalized_cells, normalized_mark)`
 fn normalize(cells: &[Coord], mark: Coord) -> (Vec<Coord>, Coord) {
     debug_assert!(!cells.is_empty(), "piece must have at least one cell");
 

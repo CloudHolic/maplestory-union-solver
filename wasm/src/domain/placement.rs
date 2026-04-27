@@ -3,13 +3,13 @@
 
 //! Concrete piece placements on the board.
 //!
-//! A ['Placement'] is the result of anchoring a ['PieceVariant'] to a specific board location.
-//! Unlike a 'PieceVariant', a 'Placement' carries all information the solver needs at decision time:
+//! A [`Placement`] is the result of anchoring a [`PieceVariant`] to a specific board location.
+//! Unlike a `PieceVariant`, a `Placement` carries all information the solver needs at decision time:
 //! the cell footprint as a bitset, the adjacent-cell mask for connectivity checks,
 //! the mark coordinate, and various precomputed counts.
 //!
-//! Placements are produced by ['crate::domain::enumerate'] and stored in
-//! a single flat 'Vec<Placement>' for the duration of a solve.
+//! Placements are produced by [`crate::domain::enumerate`] and stored in
+//! a single flat `Vec<Placement>` for the duration of a solve.
 //! They are immutable thereafter.
 
 use crate::base::BitSet;
