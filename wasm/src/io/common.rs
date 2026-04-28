@@ -6,12 +6,14 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-
+use wasm_bindgen::prelude::wasm_bindgen;
 use crate::domain::{Coord, PieceDef};
 use crate::error::{Result, SolverError};
 
 /// Wire format for [`PieceDef`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct PieceDefJson {
     pub id: String,
@@ -31,6 +33,8 @@ impl From<PieceDefJson> for PieceDef {
 
 /// One instance of a piece in the puzzle input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct PieceInstanceJson {
     pub def_id: String,
@@ -40,6 +44,8 @@ pub struct PieceInstanceJson {
 /// Fields shared by both [`ExactCoverInput`](crate::io::ExactCoverInput)
 /// and [`GroupCountInput`](crate::io::GroupCountInput).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct SolverInput {
     pub pieces: Vec<PieceInstanceJson>,
@@ -69,6 +75,8 @@ impl SolverInput {
 /// Fields shared by both [`ExactCoverStats`](crate::io::ExactCoverStats)
 /// and [`GroupCountStats`](crate::io::GroupCountStats).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct SolverStats {
     pub node_count: u64,

@@ -21,3 +21,21 @@ pub use io::{
     PieceInstanceJson, PieceDefJson, Solution, SolutionPlacement
 };
 pub use solver::{SolveOptions, solve_exact_cover};
+
+#[cfg(target_arch = "wasm32")]
+mod wasm_api {
+    use wasm_bindgen::prelude::*;
+
+    use crate::{ExactCoverInput, SolveOptions, solve_exact_cover, ExactCoverResult};
+
+    #[wasm_bindgen(js_name = solveExactCover)]
+    pub fn solve_exact_cover_wasm(
+        input: ExactCoverInput,
+        options: SolveOptions
+    ) -> Result<ExactCoverResult, JsValue> {
+        console_error_panic_hook::set_once();
+
+        solve_exact_cover(&input, options)
+            .map_err(|e| JsValue::from_str(&format!("solver error: {e}")))
+    }
+}

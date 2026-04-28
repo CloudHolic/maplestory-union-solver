@@ -11,6 +11,8 @@ use crate::io::{SolverInput, parse_cell_key};
 
 /// One group constraint for the GroupCount solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct GroupConstraintJson {
     pub group_id: u32,
@@ -30,6 +32,8 @@ impl GroupConstraintJson {
 
 /// Input to the ExactCover solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct ExactCoverInput {
     pub target_cells: Vec<String>,
@@ -50,6 +54,8 @@ impl ExactCoverInput {
 
 /// Input to the GroupCount solver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct GroupCountInput {
     pub exact_cells: Vec<String>,

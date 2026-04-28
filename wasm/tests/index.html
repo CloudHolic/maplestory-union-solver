@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WASM Solver Smoke Test</title>
+    <style>
+        body { font-family: monospace; padding: 2em; max-width: 800px; }
+        pre { background: #f0f0f0; padding: 1em; overflow-x: auto; }
+        .ok { color: green; }
+        .err { color: red; }
+    </style>
+</head>
+<body>
+    <h1>WASM Solver Smoke Test</h1>
+    <p>Open browser console (F12) for detailed output.</p>
+    <div id="result">Loading WASM module...</div>
+
+    <script type="module">
+        import init, { solveExactCover } from '../pkg';
+
+        const resultEl = document.getElementById('result');
+
+        function show(msg, cls = '') {
+            const div = document.createElement('div');
+            div.className = cls;
+            div.textContent = msg;
+            resultEl.appendChild(div);
+        }
+
+        try {
+            await init();
+            show('WASM module loaded ✓', 'ok');
+
+            // Trivial 2x2 input
+            const input = {
+                targetCells: ['0,0', '0,1', '1,0', '1,1'],
+                pieces: [{ defId: 'square', index: 0 }],
+                pieceDefs: [
+                    ['square', {
+                        id: 'square',
+                        cells: [[0,0], [0,1], [1,0], [1,1]],
+                        markIndex: 0
+                    }]
+                ],
+                centerCells: ['0,0']
+            };
+
+            const options = { seed: 42 };
+
+            const start = performance.now();
+            const result = solveExactCover(input, options);
+            const elapsed = performance.now() - start;
+
+            show(`Solver returned in ${elapsed.toFixed(2)}ms`, 'ok');
+            console.log('Full result:', result);
+
+            if (result.solution) {
+                show(`Solution found with ${result.solution.length} placements ✓`, 'ok');
+                show(`Stats: nodes=${result.stats.nodeCount}, restarts=${result.stats.restarts}, seed=0x${result.stats.seed}`);
+
+                const pre = document.createElement('pre');
+                pre.textContent = JSON.stringify(result, null, 2);
+                resultEl.appendChild(pre);
+            } else {
+                show('No solution found (unexpected for this input)', 'err');
+            }
+        } catch (e) {
+            show(`Error: ${e}`, 'err');
+            console.error(e);
+        }
+    </script>
+</body>
+</html>

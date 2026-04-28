@@ -13,6 +13,8 @@ pub type Solution = Vec<SolutionPlacement>;
 
 /// One piece placement in a solution.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct SolutionPlacement {
     pub piece: PieceInstanceJson,
@@ -22,6 +24,8 @@ pub struct SolutionPlacement {
 
 /// Result returned by the ExactCover solver.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct ExactCoverResult {
     pub solution: Option<Solution>,
@@ -30,6 +34,8 @@ pub struct ExactCoverResult {
 
 /// Statistics from an ExactCover solve.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi))]
 pub struct ExactCoverStats {
     #[serde(flatten)]
     pub common: SolverStats
@@ -45,6 +51,8 @@ impl ExactCoverStats {
 
 /// Result returned by the GroupCount solver.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct GroupCountResult {
     pub solution: Option<Solution>,
@@ -53,6 +61,8 @@ pub struct GroupCountResult {
 
 /// Statistics from a GroupCount solve.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi))]
 #[serde(rename_all = "camelCase")]
 pub struct GroupCountStats {
     #[serde(flatten)]

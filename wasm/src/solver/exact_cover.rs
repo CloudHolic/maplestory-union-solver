@@ -5,7 +5,10 @@
 //! See `docs/algorithms/exact-cover.md` for the algorithmic background.
 
 use std::collections::{HashMap, VecDeque};
-use std::time::Instant;
+
+use serde::Deserialize;
+use web_time::Instant;
+
 use crate::base::{CAPACITY, LubyIterator, SolverRng, make_rng, shuffle};
 use crate::domain::{BoardLayout, PieceInstance, enumerate_all_placements, Placement};
 use crate::error::{Result, SolverError};
@@ -23,7 +26,10 @@ use crate::solver::{
 // ─── Solve options ──────────────────────────────────────────────────
 
 /// Options controlling solver execution.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
+#[cfg_attr(target_arch = "wasm32", tsify(from_wasm_abi))]
+#[serde(rename_all = "camelCase")]
 pub struct SolveOptions {
     /// Wall-clock timeout. Solver returns without a solution if this elapses,
     /// with `timed_out: true` in stats.
@@ -34,6 +40,7 @@ pub struct SolveOptions {
 
     /// Base node budget for the Luby restart sequence.
     /// Each restart gets `luby_base * t_i` nodes, where `t_i` is the i-th Luby term.
+    #[serde(default = "default_luby_base")]
     pub luby_base: u64
 }
 
@@ -45,6 +52,10 @@ impl Default for SolveOptions {
             luby_base: 100_000
         }
     }
+}
+
+fn default_luby_base() -> u64 {
+    100_000
 }
 
 
