@@ -87,7 +87,8 @@ pub struct SolverStats {
     pub parity_prunes: u64,
     pub seed: u64,
     pub timed_out: bool,
-    pub elapsed_ms: u64
+    pub elapsed_ms: u64,
+    pub cancelled: bool
 }
 
 impl SolverStats {
@@ -103,7 +104,8 @@ impl SolverStats {
             parity_prunes: 0,
             seed,
             timed_out: false,
-            elapsed_ms: 0
+            elapsed_ms: 0,
+            cancelled: false
         }
     }
 }
@@ -157,6 +159,7 @@ mod tests {
         assert_eq!(s.node_count, 0);
         assert_eq!(s.restarts, 0);
         assert!(!s.timed_out);
+        assert!(!s.cancelled);
     }
 
     #[test]

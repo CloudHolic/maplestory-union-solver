@@ -20,13 +20,14 @@ pub use io::{
     GroupConstraintJson, GroupCountInput, GroupCountResult, GroupCountStats,
     PieceInstanceJson, PieceDefJson, Solution, SolutionPlacement
 };
-pub use solver::{SolveOptions, solve_exact_cover};
+pub use solver::{CancelFlag, SolveOptions, solve_exact_cover};
 
 #[cfg(target_arch = "wasm32")]
 mod wasm_api {
+    use js_sys::SharedArrayBuffer;
     use wasm_bindgen::prelude::*;
 
-    use crate::{ExactCoverInput, SolveOptions, solve_exact_cover, ExactCoverResult};
+    use crate::{ExactCoverInput, SolveOptions, solve_exact_cover, ExactCoverResult, CancelFlag};
 
     #[cfg(target_arch = "wasm32")]
     #[wasm_bindgen(typescript_custom_section)]
@@ -38,11 +39,14 @@ export type Solution = SolutionPlacement[];
     #[wasm_bindgen(js_name = solveExactCover)]
     pub fn solve_exact_cover_wasm(
         input: ExactCoverInput,
-        options: SolveOptions
+        options: SolveOptions,
+        #[wasm_bindgen(js_name = "cancelBuffer")]
+        cancel_buffer: Option<SharedArrayBuffer>
     ) -> Result<ExactCoverResult, JsValue> {
         console_error_panic_hook::set_once();
 
-        solve_exact_cover(&input, options)
+        let cancel_flag = cancel_buffer.as_ref().map(CancelFlag::from_sab);
+        solve_exact_cover(&input, options, cancel_flag.as_ref())
             .map_err(|e| JsValue::from_str(&format!("solver error: {e}")))
     }
 }

@@ -3,8 +3,9 @@
 
 //! Integration tests for the ExactCover solver.
 
+use std::sync::atomic::AtomicI32;
 use maplestory_union_solver_wasm::{
-    PieceDefJson, PieceInstanceJson,
+    CancelFlag, PieceDefJson, PieceInstanceJson,
     SolveOptions, SolverInput, SolverStats, ExactCoverInput,
     solve_exact_cover
 };
@@ -44,7 +45,7 @@ fn solve_returns_valid_result_for_trivial_input() {
         ..Default::default()
     };
 
-    let result = solve_exact_cover(&input, options).expect("solver should not error");
+    let result = solve_exact_cover(&input, options, None).expect("solver should not error");
 
     assert!(result.solution.is_some(), "trivial input should be solved");
     let solution = result.solution.unwrap();
@@ -60,14 +61,14 @@ fn solve_records_seed_in_stats() {
         ..Default::default()
     };
 
-    let result = solve_exact_cover(&input, options).unwrap();
+    let result = solve_exact_cover(&input, options, None).unwrap();
     assert_eq!(result.stats.common.seed, 0xDEADBEEF);
 }
 
 #[test]
 fn solve_with_default_options_works() {
     let input = make_2x2_input();
-    let result = solve_exact_cover(&input, SolveOptions::default()).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
     assert!(result.solution.is_some());
 }
 
@@ -83,8 +84,8 @@ fn input_round_trips_through_json() {
     };
     let opts2 = opts1.clone();
 
-    let r1 = solve_exact_cover(&input, opts1).unwrap();
-    let r2 = solve_exact_cover(&parsed, opts2).unwrap();
+    let r1 = solve_exact_cover(&input, opts1, None).unwrap();
+    let r2 = solve_exact_cover(&parsed, opts2, None).unwrap();
 
     assert_eq!(
         r1.solution.is_some(),
@@ -96,7 +97,7 @@ fn input_round_trips_through_json() {
 #[test]
 fn result_serializes_to_camel_case_json() {
     let input = make_2x2_input();
-    let result = solve_exact_cover(&input, SolveOptions::default()).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
     let json = serde_json::to_string(&result).unwrap();
 
     assert!(json.contains(r#""nodeCount""#), "should be camelCase");
@@ -107,7 +108,7 @@ fn result_serializes_to_camel_case_json() {
 #[test]
 fn solver_stats_has_all_expected_fields() {
     let input = make_2x2_input();
-    let result = solve_exact_cover(&input, SolveOptions::default()).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
     let stats: &SolverStats = &result.stats.common;
 
     let _ = stats.node_count;
@@ -120,4 +121,29 @@ fn solver_stats_has_all_expected_fields() {
     let _ = stats.seed;
     let _ = stats.timed_out;
     let _ = stats.elapsed_ms;
+    let _ = stats.cancelled;
+}
+
+#[test]
+fn cancel_flag_stops_solve_and_serializes_to_camel_case() {
+    let input = make_2x2_input();
+    let flag = AtomicI32::new(1);  // pre-cancelled
+    let cancel = CancelFlag::new(&flag);
+
+    let result = solve_exact_cover(&input, SolveOptions::default(), Some(&cancel)).unwrap();
+
+    assert!(result.solution.is_none());
+    assert!(result.stats.common.cancelled);
+
+    let json = serde_json::to_string(&result).unwrap();
+    assert!(json.contains(r#""cancelled":true"#), "wire format should be camelCase 'cancelled'");
+}
+
+#[test]
+fn no_cancel_flag_means_solve_completes() {
+    let input = make_2x2_input();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
+
+    assert!(result.solution.is_some());
+    assert!(!result.stats.common.cancelled);
 }

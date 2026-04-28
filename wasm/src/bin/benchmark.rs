@@ -90,7 +90,7 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
             luby_base: args.luby_base
         };
 
-        let result = solve_exact_cover(&input, options)?;
+        let result = solve_exact_cover(&input, options, None)?;
         let solved = result.solution.is_some();
         all_elapsed_ms.push(result.stats.common.elapsed_ms);
         all_solved.push(solved);

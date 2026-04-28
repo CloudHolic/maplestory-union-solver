@@ -18,6 +18,7 @@ use crate::io::{
 };
 use crate::SolutionPlacement;
 use crate::solver::{
+    CancelFlag,
     IslandWorkspace, SearchState, PlacementUndo,
     island_check, neighbor_check, parity_check
 };
@@ -310,7 +311,10 @@ struct BacktrackEnv {
     neighbor_prunes: u64,
 
     /// Times the MRV scan found a cell with zero placements.
-    dead_cell_prunes: u64
+    dead_cell_prunes: u64,
+
+    /// Set to `true` when the cancel flag is observed as non-zero.
+    cancelled: bool
 }
 
 impl BacktrackEnv {
@@ -331,7 +335,8 @@ impl BacktrackEnv {
             parity_prunes: 0,
             island_prunes: 0,
             neighbor_prunes: 0,
-            dead_cell_prunes: 0
+            dead_cell_prunes: 0,
+            cancelled: false
         }
     }
 
@@ -377,12 +382,24 @@ enum MrvOutcome {
 ///    has exactly one valid placement, apply it and rescan.
 /// 4. Branch on the MRV cell: try its candidate placements one by one,
 ///    recursing into each.
-fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv) -> bool {
+fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelFlag>) -> bool {
     env.nodes_this_restart += 1;
     env.total_nodes += 1;
 
     if env.nodes_this_restart >= env.node_budget {
         env.budget_exhausted = true;
+        return false;
+    }
+
+    // Cancel check at the same site as budget.
+    if !env.cancelled {
+        if let Some(c) = cancel {
+            if c.is_cancelled() {
+                env.cancelled = true;
+            }
+        }
+    }
+    if env.cancelled {
         return false;
     }
 
@@ -485,7 +502,7 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv) -> bool {
             continue;
         }
 
-        if backtrack(ctx, env) {
+        if backtrack(ctx, env, cancel) {
             return true;
         }
 
@@ -614,7 +631,7 @@ fn will_drop_center_mark_type(ctx: &SolveContext, state: &SearchState, pl: &Plac
 // ─── Public entry point ───────────────────────────────────────────────
 
 /// Builds the public stats object from internal counters.
-fn build_stats(env: &BacktrackEnv, seed: u64, elapsed_ms: u64, timed_out: bool) -> ExactCoverStats {
+fn build_stats(env: &BacktrackEnv, seed: u64, elapsed_ms: u64, timed_out: bool, cancelled: bool) -> ExactCoverStats {
     ExactCoverStats {
         common: SolverStats {
             node_count: env.total_nodes,
@@ -625,8 +642,9 @@ fn build_stats(env: &BacktrackEnv, seed: u64, elapsed_ms: u64, timed_out: bool) 
             neighbor_prunes: env.neighbor_prunes,
             parity_prunes: env.parity_prunes,
             seed,
-            timed_out,
-            elapsed_ms
+            timed_out: timed_out && !cancelled, // Cancel takes priority on race.
+            elapsed_ms,
+            cancelled
         }
     }
 }
@@ -676,7 +694,8 @@ fn reconstruct_solution(ctx: &SolveContext, env: &BacktrackEnv, input: &ExactCov
 /// Returns a [`SolverError`] if the input fails setup-time validation.
 pub fn solve_exact_cover(
     input: &ExactCoverInput,
-    options: SolveOptions
+    options: SolveOptions,
+    cancel: Option<&CancelFlag>
 ) -> Result<ExactCoverResult> {
     let ctx = SolveContext::build(input)?;
     let seed = options.seed.unwrap_or_else(rand::random::<u64>);
@@ -690,12 +709,12 @@ pub fn solve_exact_cover(
 
     // First attempt with the initial cell ordering.
     env.node_budget = luby.next().expect("Luby iterator never terminates");
-    if backtrack(&ctx, &mut env) {
+    if backtrack(&ctx, &mut env, cancel) {
         found_solution = true;
     }
 
-    // Restart loop. Exits on solution found or timeout.
-    while !found_solution {
+    // Restart loop. Exits on solution found, timeout, or cancel.
+    while !found_solution && !env.cancelled {
         // Check timeout before starting a new restart.
         if let Some(timeout_ms) = options.timeout_ms {
             if start_time.elapsed().as_millis() as u64 >= timeout_ms {
@@ -704,11 +723,19 @@ pub fn solve_exact_cover(
             }
         }
 
+        // Check cancel at restart boundary too.
+        if let Some(c) = cancel {
+            if c.is_cancelled() {
+                env.cancelled = true;
+                break;
+            }
+        }
+
         env.restarts += 1;
         let next_budget = luby.next().expect("Luby iterator never terminates");
         env.reset_for_restart(&ctx, next_budget, &mut rng);
 
-        if backtrack(&ctx, &mut env) {
+        if backtrack(&ctx, &mut env, cancel) {
             found_solution = true;
         }
     }
@@ -716,7 +743,7 @@ pub fn solve_exact_cover(
     let elapsed_ms = start_time.elapsed().as_millis() as u64;
 
     // Build stats from accumulated counters.
-    let stats = build_stats(&env, seed, elapsed_ms, timed_out);
+    let stats = build_stats(&env, seed, elapsed_ms, timed_out, env.cancelled);
 
     let solution = if found_solution {
         Some(reconstruct_solution(&ctx, &env, input))
@@ -821,7 +848,7 @@ mod tests {
             seed: Some(42),
             ..Default::default()
         };
-        let result = solve_exact_cover(&input, options).unwrap();
+        let result = solve_exact_cover(&input, options, None).unwrap();
 
         assert!(result.solution.is_some(), "expected a solution");
 
@@ -835,6 +862,7 @@ mod tests {
 
         assert!(result.stats.common.node_count >= 1);
         assert_eq!(result.stats.common.timed_out, false);
+        assert_eq!(result.stats.common.cancelled, false);
         assert_eq!(result.stats.common.seed, 42);
     }
 
@@ -874,7 +902,7 @@ mod tests {
             seed: Some(7),
             ..Default::default()
         };
-        let result = solve_exact_cover(&input, options).unwrap();
+        let result = solve_exact_cover(&input, options, None).unwrap();
 
         assert!(result.solution.is_some());
 
@@ -891,5 +919,43 @@ mod tests {
 
         assert_eq!(covered.len(), 4);
         assert!(sol.iter().any(|p| p.mark == (0, 0)));
+    }
+
+    #[test]
+    fn solve_with_pre_set_cancel_flag_returns_cancelled() {
+        use std::sync::atomic::AtomicI32;
+
+        let input = make_2x2_input();
+        let flag = AtomicI32::new(1);  // canceled before solve starts
+        let cancel = CancelFlag::new(&flag);
+
+        let result = solve_exact_cover(&input, SolveOptions::default(), Some(&cancel)).unwrap();
+
+        assert!(result.solution.is_none(), "should not solve when cancelled before start");
+        assert!(result.stats.common.cancelled);
+        assert!(!result.stats.common.timed_out, "cancel takes priority over timeout");
+    }
+
+    #[test]
+    fn solve_with_unset_cancel_flag_completes_normally() {
+        use std::sync::atomic::AtomicI32;
+
+        let input = make_2x2_input();
+        let flag = AtomicI32::new(0);
+        let cancel = CancelFlag::new(&flag);
+
+        let result = solve_exact_cover(&input, SolveOptions::default(), Some(&cancel)).unwrap();
+
+        assert!(result.solution.is_some());
+        assert!(!result.stats.common.cancelled);
+    }
+
+    #[test]
+    fn solve_with_no_cancel_param_completes_normally() {
+        let input = make_2x2_input();
+        let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
+
+        assert!(result.solution.is_some());
+        assert!(!result.stats.common.cancelled);
     }
 }

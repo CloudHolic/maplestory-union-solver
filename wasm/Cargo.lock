@@ -279,6 +279,7 @@ dependencies = [
  "clap",
  "console_error_panic_hook",
  "getrandom",
+ "js-sys",
  "rand",
  "rand_xoshiro",
  "serde",
