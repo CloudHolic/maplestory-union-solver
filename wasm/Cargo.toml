@@ -6,7 +6,6 @@ rust-version = "1.95.0"
 license = "LGPL-3.0-or-later"
 description = "MapleStory Union Placement Solver"
 repository = "https://github.com/CloudHolic/maplestory-union-solver"
-authors = ["CloudHolic"]
 publish = false
 
 [lib]
