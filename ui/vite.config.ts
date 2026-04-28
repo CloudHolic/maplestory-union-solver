@@ -3,6 +3,11 @@ import { fileURLToPath } from "url";
 import react from '@vitejs/plugin-react'
 import tailwindcss from "@tailwindcss/vite";
 
+const crossOriginIsolatedHeaders = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp'
+};
+
 export default defineConfig({
   plugins: [
     react(),
@@ -19,6 +24,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: false
+    strictPort: false,
+    headers: crossOriginIsolatedHeaders
+  },
+  preview: {
+    headers: crossOriginIsolatedHeaders
   }
 })

@@ -1,10 +1,11 @@
-# wasm
+# maplestory-union-solver/wasm
 
 Rust solver for the MapleStory Union placement puzzle. Builds for two
 targets:
 
 - **Native** (default): standalone library and benchmark binary.
-- **WebAssembly**: browser-loadable module via wasm-bindgen and wasm-pack.
+- **WebAssembly**: browser-loadable module via wasm-bindgen and wasm-pack, 
+consumed by the React UI in '../ui/'.
 
 See [`docs/algorithms/exact-cover.md`](../docs/algorithms/exact-cover.md)
 for the algorithmic background.
@@ -20,12 +21,11 @@ src/
 ├── base/                   primitives (bitset, RNG)
 ├── domain/                 puzzle domain (pieces, placements)
 ├── io/                     JSON wire format types
-├── solver/                 backtracking algorithm and pruning
-└── bin/benchmark.rs        native CLI runner
+├── solver/                 backtracking algorithm, pruning, and cooperative cancel
+└── bin/
+    └──benchmark.rs        native CLI runner
 tests/
 └── exact_cover_basic.rs    integration tests (cargo test)
-wasm-test/
-└── index.html              browser-side smoke test for the WASM build
 ```
 
 ## Build
@@ -50,30 +50,20 @@ Run `benchmark --help` for the full flag list.
 
 Requires [wasm-pack](https://rustwasm.github.io/wasm-pack/).
 
+The `ui/` project drives WASM builds via its `build:wasm` npm script,
+which writes output into `ui/wasm-pkg`:
+
 ```sh
-wasm-pack build --target web --release
+cd ../ui && pnpm build:wasm
 ```
 
-Produces a `pkg/` directory containing `.wasm`, `.js`, and `.d.ts`
-files ready to import from a browser via ES modules.
-
-### Browser smoke test
-
-After `wasm-pack build`, serve the crate root over HTTP and open the
-test page. Any static-file server works; Vite is convenient because it
-sets the `application/wasm` MIME type automatically:
-
-    npx vite . --port 8000
-    # then open http://localhost:8000/wasm-test/index.html
-
-The page loads the WASM module, runs the solver on a small input, and
-prints the result. Useful for verifying that a fresh `wasm-pack build`
-produces a working module.
+Output is a `pkg/`-style directory containing `.wasm`, `.js`, and
+`.d.ts` files ready to import from a browser via ES modules.
 
 ## Using from JavaScript / TypeScript
 
 ```typescript
-import init, { solveExactCover } from './pkg/maplestory_union_solver.js';
+import init, { solveExactCover } from '@solver/wasm';
 
 await init();
 
@@ -94,8 +84,8 @@ if (result.solution) {
 }
 ```
 
-All wire-format types are exported as TypeScript interfaces in
-`pkg/maplestory_union_solver.d.ts`.
+All wire-format types are exported as TypeScript interfaces in the
+generated `.d.ts`.
 
 ## License
 
