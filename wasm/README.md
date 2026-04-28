@@ -48,7 +48,7 @@ Run `benchmark --help` for the full flag list.
 
 ### WebAssembly module
 
-Requires [wasm-pack](https://rustwasm.github.io/wasm-pack/).
+Requires `wasm-pack`.
 
 The `ui/` project drives WASM builds via its `build:wasm` npm script,
 which writes output into `ui/wasm-pkg`:
