@@ -3,7 +3,7 @@
 
 //! Integration tests for the ExactCover solver.
 
-use maplestory_union_solver::{
+use maplestory_union_solver_wasm::{
     PieceDefJson, PieceInstanceJson,
     SolveOptions, SolverInput, SolverStats, ExactCoverInput,
     solve_exact_cover

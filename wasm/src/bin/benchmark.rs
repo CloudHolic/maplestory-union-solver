@@ -13,7 +13,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
-use maplestory_union_solver::{
+use maplestory_union_solver_wasm::{
     ExactCoverInput, ExactCoverResult, SolveOptions, solve_exact_cover
 };
 

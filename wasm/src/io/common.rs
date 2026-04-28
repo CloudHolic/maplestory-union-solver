@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::wasm_bindgen;
 use crate::domain::{Coord, PieceDef};
 use crate::error::{Result, SolverError};
 
