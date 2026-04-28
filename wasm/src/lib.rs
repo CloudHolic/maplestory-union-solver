@@ -28,6 +28,13 @@ mod wasm_api {
 
     use crate::{ExactCoverInput, SolveOptions, solve_exact_cover, ExactCoverResult};
 
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen(typescript_custom_section)]
+    const TS_APPEND_CONTENT: &'static str = r#"
+export type Coord = [number, number];
+export type Solution = SolutionPlacement[];
+"#;
+
     #[wasm_bindgen(js_name = solveExactCover)]
     pub fn solve_exact_cover_wasm(
         input: ExactCoverInput,
