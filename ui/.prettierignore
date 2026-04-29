@@ -1,0 +1,4 @@
+﻿node_modules
+wasm-pkg
+pnpm-lock.yaml
+public

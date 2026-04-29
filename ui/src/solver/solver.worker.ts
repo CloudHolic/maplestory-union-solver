@@ -10,30 +10,34 @@ import type { SolveRequest, WorkerResponse } from "./messages.ts";
 const initPromise = init();
 
 self.onmessage = async (event: MessageEvent<SolveRequest>): Promise<void> => {
-    const request = event.data;
+	const request = event.data;
 
-    if (request.kind !== 'solve') {
-        postResponse({
-            kind: 'error',
-            message: `unexpected message kind: ${(request as { kind: string }).kind}`
-        });
+	if (request.kind !== "solve") {
+		postResponse({
+			kind: "error",
+			message: `unexpected message kind: ${(request as { kind: string }).kind}`
+		});
 
-        return;
-    }
+		return;
+	}
 
-    try {
-        await initPromise;
-        const result = solveExactCover(request.input, request.options, request.cancelBuffer);
-        postResponse({ kind: 'result', result });
-    } catch (error) {
-        postResponse({
-            kind: 'error',
-            message: error instanceof Error ? error.message : String(error),
-        });
-    }
-}
+	try {
+		await initPromise;
+		const result = solveExactCover(
+			request.input,
+			request.options,
+			request.cancelBuffer
+		);
+		postResponse({ kind: "result", result });
+	} catch (error) {
+		postResponse({
+			kind: "error",
+			message: error instanceof Error ? error.message : String(error)
+		});
+	}
+};
 
 // A type-safe wrapper of postMessage.
 function postResponse(response: WorkerResponse): void {
-    self.postMessage(response);
+	self.postMessage(response);
 }
