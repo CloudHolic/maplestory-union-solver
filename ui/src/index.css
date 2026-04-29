@@ -1,2 +1,11 @@
 @import "tailwindcss";
 @import "@heroui/styles";
+
+@theme {
+	--color-board-bg: oklch(0.18 0.02 270);
+	--color-board-cell: oklch(0.95 0.005 270);
+	--color-board-cell-selected: oklch(0.7 0.18 200);
+	--color-board-outline: oklch(0.08 0 0);
+	--color-board-center-ring: oklch(0.85 0.18 90);
+	--color-board-count-overlay: oklch(0.5 0.08 30 / 0.45);
+}
