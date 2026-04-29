@@ -12,20 +12,20 @@ use crate::domain::placement::Placement;
 /// - `covered`: which board cells are currently occupied by some placement.
 ///   `bits` set <-> cell covered.
 /// - `remaining`: per piece-type, how many instances are still unplaced.
-///    Indexed by `Placement::type_idx`.
+///   Indexed by `Placement::type_idx`.
 /// - `covered_count`: cardinality of `covered`. Maintained alongside the bitset
-///    to avoid recounting.
+///   to avoid recounting.
 /// - `covered_black`: number of checkerboard-black cells in `covered`.
-///    Used by parity prune.
+///   Used by parity prune.
 /// - `has_center_mark`: `true` once any placed piece's mark cell falls
-///    on the center region. Once `true`, never resets within a subtree
-///    until that placement is undone.
+///   on the center region. Once `true`, never resets within a subtree
+///   until that placement is undone.
 /// - `center_mark_type_remaining`: count of piece types that (a) still have
-///    remaining instances and (b) at least one of those instances could land a mark
-///    on the center region. When this reaches 0 without `has_center_mark` being true,
-///    the subtree is infeasible.
+///   remaining instances and (b) at least one of those instances could land a mark
+///   on the center region. When this reaches 0 without `has_center_mark` being true,
+///   the subtree is infeasible.
 /// - `result`: stack of currently-applied placement indices, in apply order.
-///    A complete solution is the contents of this stack.
+///   A complete solution is the contents of this stack.
 #[derive(Debug)]
 pub(crate) struct SearchState {
     pub(crate) covered: BitSet,
@@ -85,7 +85,7 @@ impl SearchState {
     /// - `pl.bits` must not overlap with `self.covered`.
     /// - `self.remaining[pl.type_idx]` must be > 0.
     /// - `placement_index` is the index of this placement in the solver's flat placement list,
-    ///    used for solution reconstruction.
+    ///   used for solution reconstruction.
     #[inline]
     pub(crate) fn apply_placement(
         &mut self,
@@ -151,9 +151,9 @@ impl SearchState {
 /// Token returned by [`SearchState::apply_placement`] and consumed by [`SearchState::undo_placement`].
 /// Captures state values that cannot be recovered from the placement alone:
 /// - `prev_has_center_mark`: whether any prior placement had already satisfied
-///    the center-mark constraint.
-/// - `center_mark_type_drop`: whether this apply caused the `center_mark_type_remaining`
-///    counter to decrement.
+///   the center-mark constraint.
+/// - `center_mark_type_drop`: whether this applies caused the `center_mark_type_remaining`
+///   counter to decrement.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PlacementUndo {
     pub(crate) prev_has_center_mark: bool,
@@ -287,7 +287,7 @@ mod tests {
         let mut state = SearchState::new(vec![1], 0);
         assert!(state.center_mark_unreachable());
 
-        // If has_center_mark is true, it's not unreachable.
+        // If a has_center_mark is true, it's not unreachable.
         state.has_center_mark = true;
         assert!(!state.center_mark_unreachable());
 

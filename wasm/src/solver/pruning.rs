@@ -11,6 +11,7 @@
 //! - [`neighbor_check`]: after a placement, validates that no adjacent uncovered cell
 //!   has been left with zero valid placements.
 
+use crate::base::CAPACITY;
 use crate::domain::placement::Placement;
 use crate::solver::SearchState;
 
@@ -216,7 +217,7 @@ pub(crate) fn neighbor_check(
     // Iterate set bits of neighbor_bits.
     // For each adjacent uncovered cell, check that at least one valid placement
     // of a remaining type still covers it.
-    for cell_idx in 0..crate::base::CAPACITY {
+    for cell_idx in 0..CAPACITY {
         if !pl.neighbor_bits.test(cell_idx) {
             continue;
         }

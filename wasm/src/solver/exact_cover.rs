@@ -392,12 +392,8 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
     }
 
     // Cancel check at the same site as budget.
-    if !env.cancelled {
-        if let Some(c) = cancel {
-            if c.is_cancelled() {
-                env.cancelled = true;
-            }
-        }
+    if !env.cancelled && let Some(c) = cancel && c.is_cancelled() {
+        env.cancelled = true;
     }
     if env.cancelled {
         return false;
@@ -716,19 +712,16 @@ pub fn solve_exact_cover(
     // Restart loop. Exits on solution found, timeout, or cancel.
     while !found_solution && !env.cancelled {
         // Check timeout before starting a new restart.
-        if let Some(timeout_ms) = options.timeout_ms {
-            if start_time.elapsed().as_millis() as u64 >= timeout_ms {
-                timed_out = true;
-                break;
-            }
+        if let Some(timeout_ms) = options.timeout_ms
+            && start_time.elapsed().as_millis() as u64 >= timeout_ms {
+            timed_out = true;
+            break;
         }
 
         // Check cancel at restart boundary too.
-        if let Some(c) = cancel {
-            if c.is_cancelled() {
-                env.cancelled = true;
-                break;
-            }
+        if let Some(c) = cancel && c.is_cancelled() {
+            env.cancelled = true;
+            break;
         }
 
         env.restarts += 1;
