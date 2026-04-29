@@ -12,11 +12,9 @@ describe("cellKey", () => {
 
 describe("parseKey", () => {
 	it("inverts cellKey across the board range", () => {
-		for (const r of [0, 9, 19]) {
-			for (const c of [0, 10, 21]) {
+		for (const r of [0, 9, 19])
+			for (const c of [0, 10, 21])
 				expect(parseKey(cellKey(r, c))).toEqual([r, c]);
-			}
-		}
 	});
 
 	it("throws on malformed input", () => {

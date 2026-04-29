@@ -12,9 +12,8 @@ export function cellKey(r: number, c: number): string {
 /** Inverse of cellKey. */
 export function parseKey(key: string): Coord {
 	const [rStr, cStr] = key.split(",");
-	if (rStr === undefined || cStr === undefined) {
+	if (rStr === undefined || cStr === undefined)
 		throw new Error(`Invalid cell key: ${JSON.stringify(key)}`);
-	}
 
 	return [Number(rStr), Number(cStr)];
 }

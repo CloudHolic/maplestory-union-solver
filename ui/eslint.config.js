@@ -76,7 +76,9 @@ export default defineConfig([
 					ignoreDeclarationSort: true,
 					ignoreMemberSort: false
 				}
-			]
+			],
+			curly: ["error", "multi"],
+			"nonblock-statement-body-position": ["error", "below"]
 		}
 	},
 	prettierConfig
