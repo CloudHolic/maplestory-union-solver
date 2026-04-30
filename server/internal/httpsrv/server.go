@@ -2,8 +2,12 @@
 package httpsrv
 
 import (
+	"time"
+
 	"github.com/CloudHolic/maplestory-union-solver/server/internal/characters"
 	"github.com/CloudHolic/maplestory-union-solver/server/internal/config"
+	"github.com/CloudHolic/maplestory-union-solver/server/internal/nexon"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -29,7 +33,13 @@ func New(deps Deps) *echo.Echo {
 		AllowMethods: []string{"GET"},
 	}))
 
-	chHandler := characters.NewHandler(deps.DB)
+	repo := characters.NewRepository(deps.DB)
+	nx := nexon.NewClient(deps.Config.NexonAPIKey)
+
+	const unionTTL = 60 * time.Second
+	svc := characters.NewService(repo, nx, unionTTL)
+	chHandler := characters.NewHandler(svc)
+
 	api := e.Group("/api")
 	api.GET("/characters/:nickname", chHandler.GetByNickname)
 
