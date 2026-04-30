@@ -1,6 +1,6 @@
 // SVG board grid.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
 	BOARD_HEIGHT,
@@ -13,6 +13,7 @@ import { computeOutlinePath } from "@/utils/boardOutline.ts";
 import { cellKey, parseKey } from "@/utils/coords.ts";
 
 import { BoardCell } from "./BoardCell.tsx";
+import { GroupCountOverlay } from "./GroupCountOverlay.tsx";
 
 interface CellRenderInfo {
 	r: number;
@@ -45,6 +46,9 @@ export function Board() {
 	const groupSelectMode = useBoardStore(s => s.groupSelectMode);
 	const toggleCell = useBoardStore(s => s.toggleCell);
 	const toggleGroup = useBoardStore(s => s.toggleGroup);
+	const setGroupCount = useBoardStore(s => s.setGroupCount);
+
+	const [activeGroupId, setActiveGroupId] = useState<GroupId | null>(null);
 
 	// Cell keys covered by any count-mode group.
 	const countModeKeys = useMemo(() => {
@@ -58,11 +62,21 @@ export function Board() {
 	}, [groupCounts]);
 
 	const handleClick = (key: string) => {
-		if (groupSelectMode) {
-			const groupId = UNION_BOARD.cellToGroup.get(key);
-			if (groupId !== undefined)
-				toggleGroup(groupId);
-		} else
+		const groupId = UNION_BOARD.cellToGroup.get(key);
+		if (groupId === undefined)
+			return;
+
+		if (groupCounts[groupId] > 0) {
+			setActiveGroupId(activeGroupId === groupId ? null : groupId);
+			return;
+		}
+
+		if (activeGroupId !== null)
+			setActiveGroupId(null);
+
+		if (groupSelectMode)
+			toggleGroup(groupId);
+		else
 			toggleCell(key);
 	};
 
@@ -71,23 +85,30 @@ export function Board() {
 		if (groupId === undefined)
 			return;
 
-		// TODO: Open GroupCountOverlay for this groupId.
-		console.log("right-click on group", groupId);
+		if (groupCounts[groupId] > 0) {
+			setGroupCount(groupId, 0);
+			if (activeGroupId === groupId)
+				setActiveGroupId(null);
+
+			return;
+		}
+
+		setGroupCount(groupId, 1);
+		setActiveGroupId(groupId);
 	};
 
 	return (
-		<div className="relative inline-block">
+		<div className="relative inline-block w-[80vmin]">
 			<svg
 				viewBox={`${-PAD} ${-PAD} ${BOARD_WIDTH + 2 * PAD} ${BOARD_HEIGHT + 2 * PAD}`}
-				className="block h-auto w-full max-w-[min(95vw,95vh)] bg-board-bg"
+				className="block h-auto w-full bg-board-bg"
 			>
-				{ALL_CELLS.map(({ r, c, key, groupId }) => (
+				{ALL_CELLS.map(({ r, c, key }) => (
 					<BoardCell
 						key={key}
 						row={r}
 						col={c}
 						isSelected={selectedCells.has(key)}
-						isCountMode={groupCounts[groupId] > 0}
 						onClick={handleClick}
 						onContextMenu={handleContextMenu}
 					/>
@@ -116,6 +137,25 @@ export function Board() {
 					/>
 				))}
 			</svg>
+
+			{UNION_BOARD.groups
+				.filter(g => groupCounts[g.id] > 0)
+				.map(g => (
+					<GroupCountOverlay
+						key={g.id}
+						groupId={g.id}
+						count={groupCounts[g.id]!}
+						boardPad={PAD}
+						editing={activeGroupId === g.id}
+						onEditStart={() => setActiveGroupId(g.id)}
+						onEditEnd={() => setActiveGroupId(null)}
+						onClear={() => {
+							setGroupCount(g.id, 0);
+							if (activeGroupId === g.id)
+								setActiveGroupId(null);
+						}}
+					/>
+				))}
 		</div>
 	);
 }
