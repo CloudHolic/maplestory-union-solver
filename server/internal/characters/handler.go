@@ -1,3 +1,5 @@
+// Package characters serves the character cache lookup endpoint, which is
+// the single entry point users hit when they search a MapleStory nickname.
 package characters
 
 import (
@@ -7,14 +9,20 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// Handler bundles the dependencies required by the character HTTP handlers.
 type Handler struct {
 	db *sqlx.DB
 }
 
+// NewHandler constructs a Handler bound to the given database handle.
 func NewHandler(db *sqlx.DB) *Handler {
 	return &Handler{db: db}
 }
 
+// GetByNickname returns the cached character data, the user's last saved selection region,
+// and the timestamp of the previous search for the given nickname.
+//
+// GET /api/characters/:nickname
 func (h *Handler) GetByNickname(c *echo.Context) error {
 	nickname := c.Param("nickname")
 	if nickname == "" {
@@ -25,30 +33,4 @@ func (h *Handler) GetByNickname(c *echo.Context) error {
 	return c.JSON(http.StatusNotImplemented, map[string]string{
 		"nickname": nickname,
 		"status":   "handler stub - implementation pending"})
-}
-
-func (h *Handler) RecentSearches(c *echo.Context) error {
-	limit, err := echo.QueryParamOr[int](c, "limit", 10)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid limit")
-	}
-
-	limit = clamp(limit, 1, 50)
-
-	// TODO: Search DB
-	return c.JSON(http.StatusNotImplemented, map[string]any{
-		"limit":   limit,
-		"results": []any{},
-		"status":  "handler stub - implementation pending"})
-}
-
-func clamp(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-
-	return v
 }

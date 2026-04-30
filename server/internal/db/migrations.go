@@ -48,7 +48,7 @@ func applyMigrations(db *sqlx.DB) error {
 			continue
 		}
 
-		sqlBytes, err := migrationFS.ReadFile(fmt.Sprintf("migrations/" + name))
+		sqlBytes, err := migrationFS.ReadFile("migrations/" + name)
 		if err != nil {
 			return fmt.Errorf("reading %s: %w", name, err)
 		}

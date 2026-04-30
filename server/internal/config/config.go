@@ -1,3 +1,5 @@
+// Package config loads runtime configuration from the environment,
+// with optional .env file support for local development.
 package config
 
 import (
@@ -8,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config holds all runtime settings sourced from environment variables.
 type Config struct {
 	NexonAPIKey    string
 	LogLevel       string
@@ -17,6 +20,8 @@ type Config struct {
 	TrustedProxies []string
 }
 
+// Load reads configuration from environment variables.
+// Returns an error if any required setting is missing.
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 

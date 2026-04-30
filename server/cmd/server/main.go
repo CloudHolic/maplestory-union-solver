@@ -1,12 +1,20 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/CloudHolic/maplestory-union-solver/server/internal/config"
 	"github.com/CloudHolic/maplestory-union-solver/server/internal/db"
+	"github.com/CloudHolic/maplestory-union-solver/server/internal/httpsrv"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo/v5"
 )
 
 func main() {
@@ -27,9 +35,26 @@ func main() {
 		_ = database.Close()
 	}(database)
 
-	slog.Info("server skeleton ready",
-		"addr", cfg.ServerAddr,
-		"db", cfg.DatabaseURL)
+	e := httpsrv.New(httpsrv.Deps{
+		Config: cfg,
+		DB:     database})
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	sc := echo.StartConfig{
+		Address:         cfg.ServerAddr,
+		HideBanner:      true,
+		HidePort:        true,
+		GracefulTimeout: 10 * time.Second}
+
+	slog.Info("server starting", "addr", cfg.ServerAddr)
+	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		slog.Error("server stopped with error", "err", err)
+		os.Exit(1)
+	}
+
+	slog.Info("shutdown completed")
 }
 
 func setupLogger(logLevel, logFormat string) {
@@ -37,16 +62,12 @@ func setupLogger(logLevel, logFormat string) {
 	switch logLevel {
 	case "debug":
 		level = slog.LevelDebug
-		break
 	case "info":
 		level = slog.LevelInfo
-		break
 	case "warn":
 		level = slog.LevelWarn
-		break
 	case "error":
 		level = slog.LevelError
-		break
 	}
 
 	var handler slog.Handler
