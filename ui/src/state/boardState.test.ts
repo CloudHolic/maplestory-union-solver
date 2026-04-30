@@ -44,7 +44,8 @@ describe("boardStore", () => {
 
 		toggleGroup("outer_1");
 		const after1 = useBoardStore.getState().selectedCells;
-		for (const k of groupKeys) expect(after1.has(k)).toBe(true);
+		for (const k of groupKeys)
+			expect(after1.has(k)).toBe(true);
 
 		toggleGroup("outer_1");
 		expect(useBoardStore.getState().selectedCells.size).toBe(0);

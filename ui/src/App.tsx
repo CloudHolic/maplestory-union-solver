@@ -6,6 +6,8 @@ import type {
 	SolveOptions
 } from "@solver/wasm";
 
+import { Board } from "@/components/board/Board.tsx";
+
 import { SolverWorker } from "./solver/SolverWorker";
 
 // Sample input — same trivial 2x2 case as the original wasm-test/index.html.
@@ -83,52 +85,55 @@ function App() {
 	};
 
 	const handleCancel = () => {
-		if (run.kind === "running") {
+		if (run.kind === "running")
 			run.worker.cancel();
-		}
+
 	};
 
 	return (
-		<div className="min-h-screen bg-background text-foreground p-6">
-			<h1 className="text-2xl font-bold mb-4">Solver Smoke Test</h1>
-			<p className="text-sm text-foreground/60 mb-6">
+		<div className="min-h-screen bg-background p-6 text-foreground">
+			<Board />
+			<hr className="border-default-300 my-8" />
+
+			<h1 className="mb-4 text-2xl font-bold">Solver Smoke Test</h1>
+			<p className="mb-6 text-sm text-foreground/60">
 				Slice 1 verification — paste an ExactCoverInput and
 				SolveOptions, run the solver via Worker, see the result. Cancel
 				mid-solve to verify cooperative cancellation produces partial
 				stats.
 			</p>
 
-			<div className="grid grid-cols-2 gap-4 mb-4">
+			<div className="mb-4 grid grid-cols-2 gap-4">
 				<label className="flex flex-col">
-					<span className="text-sm font-semibold mb-1">
+					<span className="mb-1 text-sm font-semibold">
 						ExactCoverInput (JSON)
 					</span>
 					<textarea
 						value={inputJson}
 						onChange={e => setInputJson(e.target.value)}
 						spellCheck={false}
-						className="font-mono text-xs p-2 bg-content1 border border-default-300 rounded h-64 resize-y"
+						className="bg-content1 border-default-300 h-64 resize-y rounded border p-2 font-mono text-xs"
 					/>
 				</label>
 				<label className="flex flex-col">
-					<span className="text-sm font-semibold mb-1">
+					<span className="mb-1 text-sm font-semibold">
 						SolveOptions (JSON)
 					</span>
 					<textarea
 						value={optionsJson}
 						onChange={e => setOptionsJson(e.target.value)}
 						spellCheck={false}
-						className="font-mono text-xs p-2 bg-content1 border border-default-300 rounded h-64 resize-y"
+						className="bg-content1 border-default-300 h-64 resize-y rounded border p-2 font-mono text-xs"
 					/>
 				</label>
 			</div>
 
-			<div className="flex gap-2 mb-4">
+			<div className="mb-4 flex gap-2">
 				<button
 					type="button"
 					onClick={handleSolve}
 					disabled={run.kind === "running"}
-					className="px-4 py-2 bg-primary text-primary-foreground rounded disabled:opacity-50"
+					className="bg-primary text-primary-foreground rounded px-4 py-2 disabled:opacity-50"
 				>
 					Solve
 				</button>
@@ -136,7 +141,7 @@ function App() {
 					type="button"
 					onClick={handleCancel}
 					disabled={run.kind !== "running"}
-					className="px-4 py-2 bg-danger text-danger-foreground rounded disabled:opacity-50"
+					className="rounded bg-danger px-4 py-2 text-danger-foreground disabled:opacity-50"
 				>
 					Cancel
 				</button>
@@ -163,7 +168,7 @@ function ResultPanel({ run }: { run: RunState }) {
 			return (
 				<div>
 					<p className="font-semibold text-danger">Error</p>
-					<pre className="text-xs p-2 bg-content1 border border-default-300 rounded">
+					<pre className="bg-content1 border-default-300 rounded border p-2 text-xs">
 						{run.message}
 					</pre>
 				</div>
@@ -184,7 +189,7 @@ function ResultPanel({ run }: { run: RunState }) {
 						Result: {status} — {elapsedMs.toFixed(1)}ms wall,{" "}
 						{result.stats.elapsedMs}ms solver
 					</p>
-					<pre className="text-xs p-2 bg-content1 border border-default-300 rounded overflow-auto max-h-96">
+					<pre className="bg-content1 border-default-300 max-h-96 overflow-auto rounded border p-2 text-xs">
 						{JSON.stringify(result, null, 2)}
 					</pre>
 				</div>

@@ -49,7 +49,8 @@ const EMPTY_SELECTION: ReadonlySet<string> = new Set();
 
 function cellsOfGroup(groupId: GroupId): readonly string[] {
 	const group = UNION_BOARD.groups.find(g => g.id === groupId);
-	if (group === undefined) return [];
+	if (group === undefined)
+		return [];
 
 	return group.cells.map(([r, c]) => `${r},${c}`);
 }
@@ -61,32 +62,39 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
 	toggleCell: key => {
 		const groupId = UNION_BOARD.cellToGroup.get(key);
-		if (groupId === undefined) return;
+		if (groupId === undefined)
+			return;
 
 		const { groupCounts, selectedCells } = get();
-		if (groupCounts[groupId] > 0) return;
+		if (groupCounts[groupId] > 0)
+			return;
 
 		const next = new Set(selectedCells);
-		if (next.has(key)) next.delete(key);
-		else next.add(key);
+		if (next.has(key))
+			next.delete(key);
+		else
+			next.add(key);
 
 		set({ selectedCells: next });
 	},
 
 	toggleGroup: groupId => {
 		const { groupCounts, selectedCells } = get();
-		if (groupCounts[groupId] > 0) return;
+		if (groupCounts[groupId] > 0)
+			return;
 
 		const groupKeys = cellsOfGroup(groupId);
-		if (groupKeys.length === 0) return;
+		if (groupKeys.length === 0)
+			return;
 
 		const allSelected = groupKeys.every(k => selectedCells.has(k));
 		const next = new Set(selectedCells);
 
-		for (const k of groupKeys) {
-			if (allSelected) next.delete(k);
-			else next.add(k);
-		}
+		for (const k of groupKeys)
+			if (allSelected)
+				next.delete(k);
+			else
+				next.add(k);
 
 		set({ selectedCells: next });
 	},
@@ -94,7 +102,8 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 	setGroupCount: (groupId, count) => {
 		const clamped = Math.max(0, Math.floor(count));
 		const { groupCounts, selectedCells } = get();
-		if (groupCounts[groupId] === clamped) return;
+		if (groupCounts[groupId] === clamped)
+			return;
 
 		const nextGroupCounts: Readonly<Record<GroupId, number>> = {
 			...groupCounts,
@@ -111,7 +120,8 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 		const groupKeys = cellsOfGroup(groupId);
 		const nextSelected = new Set(selectedCells);
 
-		for (const k of groupKeys) nextSelected.delete(k);
+		for (const k of groupKeys)
+			nextSelected.delete(k);
 
 		set({ groupCounts: nextGroupCounts, selectedCells: nextSelected });
 	},

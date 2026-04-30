@@ -26,10 +26,10 @@ export function BoardCell({
 
 	return (
 		<rect
-			x={col}
-			y={row}
-			width={1}
-			height={1}
+			x={col + 0.04}
+			y={row + 0.04}
+			width={0.92}
+			height={0.92}
 			className={`${fill} ${cursor}`}
 			onClick={() => onClick(key)}
 			onContextMenu={e => {

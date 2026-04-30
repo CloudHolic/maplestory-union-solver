@@ -33,11 +33,11 @@ export class SolverWorker {
 		input: ExactCoverInput,
 		options: SolveOptions
 	): Promise<ExactCoverResult> {
-		if (this.started) {
+		if (this.started)
 			return Promise.reject(
 				new Error("SolverWorker is one-shot; create a new instance.")
 			);
-		}
+
 		this.started = true;
 
 		const { promise, resolve, reject } =

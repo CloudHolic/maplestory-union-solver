@@ -134,9 +134,8 @@ export function isInnerGroup(id: GroupId): id is InnerGroupId {
  * this clamps it to a real member cell.
  * */
 function nearestCellToCentroid(cells: readonly Coord[]): Coord {
-	if (cells.length === 0) {
+	if (cells.length === 0)
 		throw new Error("nearestCellToCentroid: empty cell list");
-	}
 
 	let sumR = 0;
 	let sumC = 0;
@@ -165,9 +164,8 @@ function nearestCellToCentroid(cells: readonly Coord[]): Coord {
 
 export function parseBoardMap(rows: readonly string[]): BoardLayout {
 	const firstRow = rows[0];
-	if (firstRow === undefined) {
+	if (firstRow === undefined)
 		throw new Error("parseBoardMap: empty board");
-	}
 
 	const width = firstRow.length;
 	const height = rows.length;
@@ -176,39 +174,36 @@ export function parseBoardMap(rows: readonly string[]): BoardLayout {
 	const cellToGroup = new Map<string, GroupId>();
 
 	for (const [r, row] of rows.entries()) {
-		if (row.length !== width) {
+		if (row.length !== width)
 			throw new Error(
 				`parseBoardMap: row ${r} length ${row.length}, expected ${width}`
 			);
-		}
 
 		for (let c = 0; c < width; c++) {
 			const ch = row.charAt(c);
 			const groupId = CHAR_TO_GROUP[ch];
 
-			if (groupId === undefined) {
+			if (groupId === undefined)
 				throw new Error(
 					`parseBoardMap: unknown group char "${ch}" at (${r},${c})`
 				);
-			}
 
 			cellToGroup.set(cellKey(r, c), groupId);
 			const list = cellsByGroup.get(groupId);
-			if (list === undefined) {
+			if (list === undefined)
 				cellsByGroup.set(groupId, [[r, c]]);
-			} else {
+			else
 				list.push([r, c]);
-			}
+
 		}
 	}
 
 	const groups: BoardGroup[] = ALL_GROUP_IDS.map(id => {
 		const cells = cellsByGroup.get(id);
-		if (cells === undefined || cells.length === 0) {
+		if (cells === undefined || cells.length === 0)
 			throw new Error(
 				`parseBoardMap: group ${id} has no cells in BOARD_MAP_ROWS`
 			);
-		}
 
 		return { id, cells, centroid: nearestCellToCentroid(cells) };
 	});
