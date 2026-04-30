@@ -32,5 +32,6 @@ func (h *Handler) GetByNickname(c *echo.Context) error {
 	// TODO: Search cache -> Call Nexon API if miss
 	return c.JSON(http.StatusNotImplemented, map[string]string{
 		"nickname": nickname,
-		"status":   "handler stub - implementation pending"})
+		"status":   "handler stub - implementation pending",
+	})
 }

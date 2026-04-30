@@ -1,8 +1,10 @@
 CREATE TABLE characters (
     nickname            TEXT    PRIMARY KEY,
-    nexon_data          TEXT    NOT NULL,   -- NEXON Response JSON
-    nexon_fetched_at    INTEGER NOT NULL,   -- UNIX Epoch (sec). For TTL
-    last_selection      TEXT,               -- JSON
+    ocid                TEXT    NOT NULL,
+    presets             TEXT,
+    use_preset_no       INTEGER,
+    union_fetched_at    INTEGER NOT NULL,
+    last_selection      TEXT,
     last_selection_at   INTEGER,
     last_searched_at    INTEGER NOT NULL
 ) STRICT;

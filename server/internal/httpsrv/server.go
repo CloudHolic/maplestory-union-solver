@@ -26,7 +26,8 @@ func New(deps Deps) *echo.Echo {
 	e.Use(middleware.BodyLimit(1 << 20))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"http://localhost:5173"},
-		AllowMethods: []string{"GET"}}))
+		AllowMethods: []string{"GET"},
+	}))
 
 	chHandler := characters.NewHandler(deps.DB)
 	api := e.Group("/api")

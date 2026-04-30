@@ -31,13 +31,15 @@ func main() {
 		slog.Error("db open failed", "err", err)
 		os.Exit(1)
 	}
+
 	defer func(database *sqlx.DB) {
 		_ = database.Close()
 	}(database)
 
 	e := httpsrv.New(httpsrv.Deps{
 		Config: cfg,
-		DB:     database})
+		DB:     database,
+	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -46,7 +48,8 @@ func main() {
 		Address:         cfg.ServerAddr,
 		HideBanner:      true,
 		HidePort:        true,
-		GracefulTimeout: 10 * time.Second}
+		GracefulTimeout: 10 * time.Second,
+	}
 
 	slog.Info("server starting", "addr", cfg.ServerAddr)
 	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
