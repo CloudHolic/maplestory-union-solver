@@ -12,6 +12,8 @@ interface BoardCellProps {
 	onContextMenu: (key: string) => void;
 }
 
+const CELL_STROKE = 0.03;
+
 export function BoardCell({
 	row,
 	col,
@@ -26,11 +28,12 @@ export function BoardCell({
 
 	return (
 		<rect
-			x={col + 0.04}
-			y={row + 0.04}
-			width={0.92}
-			height={0.92}
-			className={`${fill} ${cursor}`}
+			x={col}
+			y={row}
+			width={1}
+			height={1}
+			strokeWidth={CELL_STROKE}
+			className={`${fill} ${cursor} stroke-board-cell-border`}
 			onClick={() => onClick(key)}
 			onContextMenu={e => {
 				e.preventDefault();

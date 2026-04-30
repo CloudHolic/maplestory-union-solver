@@ -35,8 +35,7 @@ const GROUP_OUTLINES: readonly { id: GroupId; d: string }[] =
 	}));
 
 // Stroke widths in viewBox units.
-const OUTLINE_STROKE = 0.06;
-const CENTER_RING_STROKE = 0.1;
+const OUTLINE_STROKE = 0.12;
 // viewBox padding.
 const PAD = OUTLINE_STROKE / 2;
 
@@ -80,7 +79,7 @@ export function Board() {
 		<div className="relative inline-block">
 			<svg
 				viewBox={`${-PAD} ${-PAD} ${BOARD_WIDTH + 2 * PAD} ${BOARD_HEIGHT + 2 * PAD}`}
-				className="block h-auto w-full max-w-3xl bg-board-bg"
+				className="block h-auto w-full max-w-[min(95vw,95vh)] bg-board-bg"
 			>
 				{ALL_CELLS.map(({ r, c, key, groupId }) => (
 					<BoardCell
@@ -116,21 +115,6 @@ export function Board() {
 						className="pointer-events-none fill-none stroke-board-outline"
 					/>
 				))}
-
-				{UNION_BOARD.centerCells.map(key => {
-					const [r, c] = parseKey(key);
-					return (
-						<rect
-							key={`center-${key}`}
-							x={c}
-							y={r}
-							width={1}
-							height={1}
-							strokeWidth={CENTER_RING_STROKE}
-							className="pointer-events-none fill-none stroke-board-center-ring"
-						/>
-					);
-				})}
 			</svg>
 		</div>
 	);

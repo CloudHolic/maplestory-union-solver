@@ -37,12 +37,6 @@ export interface BoardLayout {
 	width: number;
 	height: number;
 
-	/** As cell keys ("r,c"), in row-major order. */
-	centerCells: readonly string[];
-
-	/** O(1) center-cell membership counterpart. */
-	centerCellSet: ReadonlySet<string>;
-
 	/** All 16 groups in declaration order: outer_1..8, inner_1..8. */
 	groups: readonly BoardGroup[];
 
@@ -110,14 +104,6 @@ const BOARD_MAP_ROWS: readonly string[] = [
 	"4446666666677777777555",
 	"4466666666677777777755",
 	"4666666666677777777775"
-];
-
-// Center 4 cells. At least one piece's marked cell must land here.
-const CENTER_COORDS: readonly Coord[] = [
-	[9, 10],
-	[9, 11],
-	[10, 10],
-	[10, 11]
 ];
 
 export function isOuterGroup(id: GroupId): id is OuterGroupId {
@@ -208,14 +194,9 @@ export function parseBoardMap(rows: readonly string[]): BoardLayout {
 		return { id, cells, centroid: nearestCellToCentroid(cells) };
 	});
 
-	const centerCells = CENTER_COORDS.map(([r, c]) => cellKey(r, c));
-	const centerCellSet = new Set(centerCells);
-
 	return {
 		width,
 		height,
-		centerCells,
-		centerCellSet,
 		groups,
 		cellToGroup
 	};

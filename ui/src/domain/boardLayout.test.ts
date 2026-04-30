@@ -25,11 +25,6 @@ describe("UNION_BOARD", () => {
 		expect(inner).toHaveLength(8);
 	});
 
-	it("has 4 center cells", () => {
-		expect(UNION_BOARD.centerCells).toHaveLength(4);
-		expect(UNION_BOARD.centerCellSet.size).toBe(4);
-	});
-
 	it("groups partition all 22*20 cells exactly", () => {
 		const total = UNION_BOARD.groups.reduce(
 			(sum, g) => sum + g.cells.length,
