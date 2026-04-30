@@ -2,6 +2,7 @@
 package httpsrv
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/CloudHolic/maplestory-union-solver/server/internal/characters"
@@ -41,7 +42,38 @@ func New(deps Deps) *echo.Echo {
 	chHandler := characters.NewHandler(svc)
 
 	api := e.Group("/api")
+	api.Use(rateLimitMiddleware(deps.Config.RateLimit))
 	api.GET("/characters/:nickname", chHandler.GetByNickname)
 
 	return e
+}
+
+func rateLimitMiddleware(perMinute int) echo.MiddlewareFunc {
+	perSecond := float64(perMinute) / 60.0
+
+	burst := perMinute / 3
+	if burst < 1 {
+		burst = 1
+	}
+
+	store := middleware.NewRateLimiterMemoryStoreWithConfig(
+		middleware.RateLimiterMemoryStoreConfig{
+			Rate:      perSecond,
+			Burst:     burst,
+			ExpiresIn: 3 * time.Minute,
+		},
+	)
+
+	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Store: store,
+		IdentifierExtractor: func(c *echo.Context) (string, error) {
+			return c.RealIP(), nil
+		},
+		ErrorHandler: func(_ *echo.Context, _ error) error {
+			return echo.NewHTTPError(http.StatusForbidden, "rate limiter: cannot identify client")
+		},
+		DenyHandler: func(_ *echo.Context, _ string, _ error) error {
+			return echo.NewHTTPError(http.StatusTooManyRequests, "rate limit exceeded")
+		},
+	})
 }

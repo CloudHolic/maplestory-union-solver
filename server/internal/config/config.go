@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -18,6 +19,7 @@ type Config struct {
 	ServerAddr     string
 	DatabaseURL    string
 	TrustedProxies []string
+	RateLimit      int
 }
 
 // Load reads configuration from environment variables.
@@ -32,6 +34,7 @@ func Load() (*Config, error) {
 		ServerAddr:     getEnvDefault("SERVER_ADDR", ":8080"),
 		DatabaseURL:    getEnvDefault("DATABASE_URL", "file:./data/union.db?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000"),
 		TrustedProxies: parseCSV(os.Getenv("TRUSTED_PROXIES")),
+		RateLimit:      getEnvInt("RATE_LIMIT", 30),
 	}
 
 	if cfg.NexonAPIKey == "" {
@@ -47,6 +50,20 @@ func getEnvDefault(key, def string) string {
 	}
 
 	return def
+}
+
+func getEnvInt(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return def
+	}
+
+	return n
 }
 
 func parseCSV(s string) []string {
