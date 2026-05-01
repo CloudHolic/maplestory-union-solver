@@ -106,6 +106,14 @@ const BOARD_MAP_ROWS: readonly string[] = [
 	"4666666666677777777775"
 ];
 
+/** The 4 cells at the geometric center of the board. */
+export const BOARD_CENTER_CELLS: readonly string[] = [
+	cellKey(BOARD_HEIGHT / 2 - 1, BOARD_WIDTH / 2 - 1),
+	cellKey(BOARD_HEIGHT / 2 - 1, BOARD_WIDTH / 2),
+	cellKey(BOARD_HEIGHT / 2, BOARD_WIDTH / 2 - 1),
+	cellKey(BOARD_HEIGHT / 2, BOARD_WIDTH / 2)
+];
+
 export function isOuterGroup(id: GroupId): id is OuterGroupId {
 	return id.startsWith("outer_");
 }
