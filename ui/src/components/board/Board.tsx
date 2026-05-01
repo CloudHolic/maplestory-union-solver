@@ -98,7 +98,7 @@ export function Board() {
 	};
 
 	return (
-		<div className="relative inline-block w-[80vmin]">
+		<div className="relative w-full">
 			<svg
 				viewBox={`${-PAD} ${-PAD} ${BOARD_WIDTH + 2 * PAD} ${BOARD_HEIGHT + 2 * PAD}`}
 				className="block h-auto w-full bg-board-bg"
