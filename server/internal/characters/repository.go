@@ -155,3 +155,35 @@ func (r *Repository) TouchSearchedAt(
 
 	return nil
 }
+
+// UpdateSelection persists the user's selection blob for an existing nickname.
+func (r *Repository) UpdateSelection(
+	ctx context.Context,
+	nickname string,
+	selection string,
+	now time.Time,
+) error {
+	nowSec := now.Unix()
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE characters SET
+			last_selection		= ?,
+			last_selection_at	= ?,
+			last_searched_at	= ?
+		WHERE nickname = ?
+	`, selection, nowSec, nowSec, nickname)
+
+	if err != nil {
+		return fmt.Errorf("update selection for %q: %w", nickname, err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected for %q: %w", nickname, err)
+	}
+
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}

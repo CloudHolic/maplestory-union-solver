@@ -15,6 +15,9 @@ import { cellKey, parseKey } from "@/utils/coords.ts";
 import { BoardCell } from "./BoardCell.tsx";
 import { GroupCountOverlay } from "./GroupCountOverlay.tsx";
 
+// GroupCount solver mode is temporarily disabled.
+const GROUP_COUNT_ENABLED: boolean = false;
+
 interface CellRenderInfo {
 	r: number;
 	c: number;
@@ -110,11 +113,11 @@ export function Board() {
 						col={c}
 						isSelected={selectedCells.has(key)}
 						onClick={handleClick}
-						onContextMenu={handleContextMenu}
+						{...(GROUP_COUNT_ENABLED ? { onContextMenu: handleContextMenu } : {})}
 					/>
 				))}
 
-				{[...countModeKeys].map(key => {
+				{GROUP_COUNT_ENABLED && [...countModeKeys].map(key => {
 					const [r, c] = parseKey(key);
 					return (
 						<rect
@@ -138,7 +141,7 @@ export function Board() {
 				))}
 			</svg>
 
-			{UNION_BOARD.groups
+			{GROUP_COUNT_ENABLED && UNION_BOARD.groups
 				.filter(g => groupCounts[g.id] > 0)
 				.map(g => (
 					<GroupCountOverlay

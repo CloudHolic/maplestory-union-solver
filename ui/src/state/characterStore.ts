@@ -1,8 +1,9 @@
-﻿import { Effect, Either, ManagedRuntime } from "effect";
+﻿import { Effect, Either } from "effect";
 import { create } from "zustand";
 
 import { aggregatePresetCounts, SHAPE_COUNT } from "@/domain/pieces.ts";
 import { type CharacterData, type CharacterError, Characters } from "@/services/characters.ts";
+import { runtime } from "@/services/runtime.ts";
 
 import { useRecentSearchesStore } from "./recentSearchesStore.ts";
 
@@ -24,9 +25,6 @@ interface CharacterState {
 }
 
 const ZERO_COUNTS: ReadonlyArray<number> = new Array<number>(SHAPE_COUNT).fill(0);
-
-/** Single Effect runtime for the lifetime of the page. */
-const runtime = ManagedRuntime.make(Characters.Default);
 
 let searchSeq = 0;
 

@@ -65,6 +65,11 @@ func (s *Service) GetByNickname(ctx context.Context, nickname string) (*Characte
 	}
 }
 
+// SaveSelection persists the user's last-known selection blob for the nickname.
+func (s *Service) SaveSelection(ctx context.Context, nickname, selection string) error {
+	return s.repo.UpdateSelection(ctx, nickname, selection, s.now())
+}
+
 func (s *Service) firstFetch(ctx context.Context, nickname string, now time.Time) (*CharacterView, error) {
 	ocid, err := s.nexon.GetOCID(ctx, nickname)
 	if err != nil {

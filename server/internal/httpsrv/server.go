@@ -28,10 +28,10 @@ func New(deps Deps) *echo.Echo {
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestLogger())
-	e.Use(middleware.BodyLimit(1 << 20))
+	e.Use(middleware.BodyLimit(1 << 20)) // 1MB
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"http://localhost:5173"},
-		AllowMethods: []string{"GET"},
+		AllowMethods: []string{"GET", "PUT"},
 	}))
 
 	repo := characters.NewRepository(deps.DB)
@@ -44,6 +44,9 @@ func New(deps Deps) *echo.Echo {
 	api := e.Group("/api")
 	api.Use(rateLimitMiddleware(deps.Config.RateLimit))
 	api.GET("/characters/:nickname", chHandler.GetByNickname)
+	api.PUT("/character/:nickname/selection",
+		chHandler.SaveSelection,
+		middleware.BodyLimit(1<<14)) // 16KB
 
 	return e
 }

@@ -3,7 +3,9 @@
 package characters
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/CloudHolic/maplestory-union-solver/server/internal/nexon"
@@ -36,6 +38,38 @@ func (h *Handler) GetByNickname(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, view)
+}
+
+// SaveSelection persists the user's last-known selection region for the nickname.
+//
+// PUT /api/characters/:nickname/selection
+func (h *Handler) SaveSelection(c *echo.Context) error {
+	nickname := c.Param("nickname")
+	if nickname == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "nickname required")
+	}
+
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "reading body")
+	}
+
+	if len(body) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "empty body")
+	}
+	if !json.Valid(body) {
+		return echo.NewHTTPError(http.StatusBadRequest, "body must be valid JSON")
+	}
+
+	if err := h.svc.SaveSelection(c.Request().Context(), nickname, string(body)); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "character not searched yet")
+		}
+
+		return echo.NewHTTPError(http.StatusInternalServerError, "internal server error")
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
 func mapError(err error) error {

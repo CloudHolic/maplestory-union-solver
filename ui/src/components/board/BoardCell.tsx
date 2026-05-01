@@ -8,7 +8,7 @@ interface BoardCellProps {
 	isSelected: boolean;
 
 	onClick: (key: string) => void;
-	onContextMenu: (key: string) => void;
+	onContextMenu?: (key: string) => void;
 }
 
 const CELL_STROKE = 0.03;
@@ -32,7 +32,7 @@ export function BoardCell({
 			strokeWidth={CELL_STROKE}
 			className={`${fill} cursor-pointer stroke-board-cell-border`}
 			onClick={() => onClick(key)}
-			onContextMenu={e => {
+			onContextMenu={onContextMenu === undefined ? undefined : e => {
 				e.preventDefault();
 				onContextMenu(key);
 			}}
