@@ -1,5 +1,6 @@
 ﻿import { Input, TextField } from "@heroui/react";
 import { useState } from "react";
+import * as React from "react";
 
 import { useCharacterStore } from "@/state/characterStore.ts";
 import { useRecentSearchesStore } from "@/state/recentSearchesStore.ts";
@@ -8,12 +9,13 @@ import { useRecentSearchesStore } from "@/state/recentSearchesStore.ts";
 export function NicknameSearch() {
 	const [input, setInput] = useState("");
 	const [open, setOpen] = useState(false);
+	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
 	const recents = useRecentSearchesStore(s => s.entries);
 	const search = useCharacterStore(s => s.search);
 
 	const filtered = recents.filter(e =>
-		input === "" || e.nickname.toLocaleLowerCase().includes(input.toLowerCase())
+		input === "" || e.nickname.toLowerCase().includes(input.toLowerCase())
 	);
 
 	const submit = (nickname: string) => {
@@ -23,32 +25,55 @@ export function NicknameSearch() {
 
 		setInput(trimmed);
 		setOpen(false);
+		setHighlightedIndex(-1);
 		search(trimmed);
 	};
 
+	const handleChange = (v: string) => {
+		setInput(v);
+		setHighlightedIndex(-1);
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "ArrowDown") {
+			e.preventDefault();
+			if (filtered.length > 0)
+				setHighlightedIndex(i => Math.min(i + 1, filtered.length - 1));
+		} else if (e.key === "ArrowUp") {
+			e.preventDefault();
+			setHighlightedIndex(i => Math.max(i - 1, -1));
+		} else if (e.key === "Enter") {
+			const picked = highlightedIndex >= 0 ? filtered[highlightedIndex] : null;
+			submit(picked?.nickname ?? input);
+		} else if (e.key === "Escape") {
+			setOpen(false);
+			setHighlightedIndex(-1);
+		}
+	};
+
 	return (
-		<div className="relative w-40">
-			<TextField value={input} onChange={setInput}>
+		<div className="relative w-44">
+			<TextField
+				value={input}
+				onChange={handleChange}
+			>
 				<Input
 					placeholder="닉네임 입력"
 					onFocus={() => setOpen(true)}
 					onBlur={() => setOpen(false)}
-					onKeyDown={e => {
-						if (e.key === "Enter")
-							submit(input);
-						else if (e.key === "Escape")
-							setOpen(false);
-					}}
+					onKeyDown={handleKeyDown}
+					className="h-10 text-base"
 				/>
 			</TextField>
 
 			{open && filtered.length > 0 && (
-				<ul className="bg-content1 border-default-300 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded border shadow-lg">
-					{filtered.map(entry => (
+				<ul className="border-default-300 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded border bg-white shadow-lg">
+					{filtered.map((entry, i) => (
 						<li
 							key={entry.nickname}
-							className="hover:bg-default-200 cursor-pointer px-3 py-2 text-sm"
-							onMouseEnter={e => {
+							className={`cursor-pointer px-3 py-2 text-sm text-black ${i === highlightedIndex ? "bg-gray-100" : ""}`}
+							onMouseEnter={() => setHighlightedIndex(i)}
+							onMouseDown={e => {
 								e.preventDefault();
 								submit(entry.nickname);
 							}}

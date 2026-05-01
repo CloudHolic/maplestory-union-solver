@@ -149,11 +149,6 @@ export function Board() {
 						editing={activeGroupId === g.id}
 						onEditStart={() => setActiveGroupId(g.id)}
 						onEditEnd={() => setActiveGroupId(null)}
-						onClear={() => {
-							setGroupCount(g.id, 0);
-							if (activeGroupId === g.id)
-								setActiveGroupId(null);
-						}}
 					/>
 				))}
 		</div>

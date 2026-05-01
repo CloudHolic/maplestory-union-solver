@@ -40,8 +40,7 @@ export function CharacterPanel() {
 			<ShapeGrid />
 
 			<Button
-				variant="danger-soft"
-				size="sm"
+				variant="danger"
 				onPress={resetShapeCounts}
 				className="self-end"
 			>

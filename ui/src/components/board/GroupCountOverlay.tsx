@@ -1,4 +1,4 @@
-import { Button, CloseButton, Input } from "@heroui/react";
+import { Button, Input } from "@heroui/react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { BOARD_HEIGHT, BOARD_WIDTH, type GroupId, UNION_BOARD } from "@/domain/boardLayout.ts";
@@ -20,7 +20,6 @@ interface GroupCountOverlayProps {
 
 	onEditStart: () => void;
 	onEditEnd: () => void;
-	onClear: () => void;
 }
 
 export function GroupCountOverlay({
@@ -29,8 +28,7 @@ export function GroupCountOverlay({
 	boardPad,
 	editing,
 	onEditStart,
-	onEditEnd,
-	onClear
+	onEditEnd
 }: GroupCountOverlayProps) {
 	const group = UNION_BOARD.groups.find(g => g.id === groupId);
 	if (group === undefined)
@@ -47,7 +45,7 @@ export function GroupCountOverlay({
 
 	return (
 		<div
-			className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-2"
+			className="absolute -translate-x-1/2 -translate-y-1/2"
 			style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
 		>
 			{editing ? (
@@ -60,15 +58,13 @@ export function GroupCountOverlay({
 				/>
 			) : (
 				<Button
-					variant="ghost"
-					size="sm"
+					variant="tertiary"
 					onPress={onEditStart}
-					className="text-x1 min-w-0 px-2 font-bold"
+					className="min-w-0 cursor-pointer bg-transparent px-1 text-3xl font-bold text-black data-hovered:bg-transparent data-pressed:bg-transparent"
 				>
 					{count}
 				</Button>
 			)}
-			<CloseButton onPress={onClear} aria-label="Clear group count" />
 		</div>
 	);
 }
@@ -83,6 +79,7 @@ function CountInput({
 	const [draft, setDraft] = useState(String(initialValue));
 	const inputRef = useRef<HTMLInputElement>(null);
 
+	const stableOnCommit = useEffectEvent(() => onCommit());
 	const onUnmountCommit = useEffectEvent(() => {
 		if (useBoardStore.getState().groupCounts[groupId] === 0)
 			return;
@@ -106,7 +103,7 @@ function CountInput({
 			if (target.closest("svg"))
 				return;
 
-			onCommit();
+			stableOnCommit();
 		};
 
 		document.addEventListener("mousedown", handleDocMouseDown);
@@ -115,7 +112,7 @@ function CountInput({
 			document.removeEventListener("mousedown", handleDocMouseDown);
 			onUnmountCommit();
 		};
-	});
+	}, []);
 
 	return (
 		<Input
@@ -129,7 +126,7 @@ function CountInput({
 				if (e.key === "Enter" || e.key === "Escape")
 					onCommit();
 			}}
-			className="text-x1 w-16 text-center"
+			className="w-16 text-center text-xl font-bold"
 			aria-label="Group count"
 		/>
 	);

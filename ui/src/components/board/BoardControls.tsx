@@ -1,6 +1,7 @@
 ﻿import { Button, Checkbox } from "@heroui/react";
 
 import { SHAPES } from "@/domain/pieces.ts";
+import { validateBoardSelection } from "@/domain/validation.ts";
 import { useBoardStore } from "@/state/boardStore.ts";
 import { useCharacterStore } from "@/state/characterStore.ts";
 
@@ -20,36 +21,36 @@ export function BoardControls() {
 		sum + count * (SHAPES[i]?.cells.length ?? 0), 0);
 
 	const characterCount = shapeCounts.reduce((a, b) => a + b, 0);
+	const validationError = validateBoardSelection(selectedCells, groupCounts, shapeCounts);
 
 	const handleStart = () => {
 		console.log("Starting...");
 	};
 
-	const canStart = characterCount > 0 && selectedArea > 0;
-
 	return (
-		<div className="flex w-full items-end justify-between gap-4">
-			<div className="flex flex-col gap-0.5 text-sm">
+		<div className="flex w-full items-start justify-between gap-4">
+			<div className="flex flex-col gap-1 text-base">
 				<span>내가 선택한 영역 : {selectedArea}</span>
 				<span>선택 가능한 영역 : {availableArea}</span>
 				<span>등록 공격대원 수 : {characterCount}</span>
 			</div>
 
-			<div className="flex items-center gap-2">
-				<Checkbox isSelected={groupSelectMode} onChange={setGroupSelectMode}>
-					<Checkbox.Indicator />
+			<div className="flex items-center gap-3">
+				<Checkbox isSelected={groupSelectMode} onChange={setGroupSelectMode} className="text-sm">
+					<Checkbox.Control className="border-gray-400 bg-white data-[selected=true]:border-gray-400 data-[selected=true]:bg-white">
+						<Checkbox.Indicator className="text-black" />
+					</Checkbox.Control>
 					<Checkbox.Content>그룹 선택</Checkbox.Content>
 				</Checkbox>
 
-				<Button variant="danger" size="sm" onPress={clearBoard}>
+				<Button variant="danger" onPress={clearBoard}>
 					선택영역 초기화
 				</Button>
 
 				<Button
 					variant="primary"
-					size="sm"
 					onPress={handleStart}
-					isDisabled={!canStart}
+					isDisabled={validationError !== null}
 				>
 					배치 시작
 				</Button>
