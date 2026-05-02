@@ -1,6 +1,6 @@
 ﻿// Coordinate primitives for the 22x20 union board.
 
-import type { Coord } from "@/types/wasm";
+import type { Coord } from "@/types/wasm.ts";
 
 /** Stable string key for a cell position. */
 export function cellKey(r: number, c: number): string {

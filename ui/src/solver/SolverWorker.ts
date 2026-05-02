@@ -1,10 +1,6 @@
 ﻿// Main-thread wrapper around a single solver Worker.
 
-import type {
-	ExactCoverInput,
-	ExactCoverResult,
-	SolveOptions
-} from "@/types/wasm";
+import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm.ts";
 
 import type { SolveRequest, WorkerResponse } from "./messages.ts";
 import SolverWorkerCtor from "./solver.worker.ts?worker";

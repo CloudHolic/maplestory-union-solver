@@ -8,7 +8,7 @@ import { Selection } from "@/services/selection.ts";
 import { Solver } from "@/services/solver.ts";
 import { buildExactCoverInput } from "@/solver/inputBuilder.ts";
 import type { SolverStatus } from "@/types/status.ts";
-import type { ExactCoverResult } from "@/types/wasm";
+import type { ExactCoverResult } from "@/types/wasm.ts";
 
 import { useBoardStore } from "./boardStore.ts";
 import { useCharacterStore } from "./characterStore.ts";

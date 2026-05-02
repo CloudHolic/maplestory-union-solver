@@ -2,7 +2,7 @@
 
 import { BOARD_CENTER_CELLS } from "@/domain/boardLayout.ts";
 import { SHAPE_COUNT, SHAPES } from "@/domain/pieces.ts";
-import type { Coord, ExactCoverInput, PieceDefJson, PieceInstanceJson } from "@/types/wasm";
+import type { Coord, ExactCoverInput, PieceDefJson, PieceInstanceJson } from "@/types/wasm.ts";
 
 // SHAPES are static.
 const PIECE_DEFS: ReadonlyArray<readonly [string, PieceDefJson]> = SHAPES.map(s => [

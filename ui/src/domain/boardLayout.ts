@@ -1,7 +1,7 @@
 ﻿// Static structure of the 22x20 union board.
 
 import type { GroupId } from "@/types/board.ts";
-import type { Coord } from "@/types/wasm";
+import type { Coord } from "@/types/wasm.ts";
 import { cellKey } from "@/utils/coords.ts";
 
 export const BOARD_WIDTH = 22;

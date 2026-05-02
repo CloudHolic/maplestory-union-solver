@@ -2,9 +2,9 @@
 
 import { memo, useMemo } from "react";
 
-import { shapeColor } from "@/components/shapePalette";
+import { shapeColor } from "@/components/shapePalette.ts";
 import { SHAPES } from "@/domain/pieces.ts";
-import type { SolutionPlacement } from "@/types/wasm";
+import type { SolutionPlacement } from "@/types/wasm.ts";
 import { computeOutlinePath } from "@/utils/boardOutline.ts";
 import { cellKey } from "@/utils/coords.ts";
 

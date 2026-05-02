@@ -3,7 +3,7 @@
 import { Data, Effect } from "effect";
 
 import { SolverPortfolio } from "@/solver/SolverPortfolio.ts";
-import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm";
+import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm.ts";
 
 // Domain errors
 

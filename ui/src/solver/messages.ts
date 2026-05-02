@@ -1,10 +1,6 @@
 ﻿// Worker message protocol for the solver.
 
-import type {
-	ExactCoverInput,
-	ExactCoverResult,
-	SolveOptions
-} from "@/types/wasm";
+import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm.ts";
 
 export type SolveRequest = {
 	kind: "solve";
