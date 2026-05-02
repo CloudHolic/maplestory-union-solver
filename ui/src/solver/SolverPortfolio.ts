@@ -1,7 +1,7 @@
 ﻿// Runs N solver workers in parallel and returns the result from whichever one finishes first.
-// The remaining workers are canceled.
+// The remaining workers are cancelled.
 
-import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm";
+import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm.ts";
 
 import { SolverWorker } from "./SolverWorker.ts";
 
@@ -29,11 +29,11 @@ export class SolverPortfolio {
 
 	/**
 	 * Run all workers concurrently on the same input.
-	 * Resolves with the first worker's result; the rest are canceled.
+	 * Resolves with the first worker's result; the rest are cancelled.
 	 */
 	async solve(input: ExactCoverInput, options: SolveOptions): Promise<ExactCoverResult> {
 		if (this.state !== "idle")
-			throw new Error("SolverPortfolio is one=shot; create a new instance.");
+			throw new Error("SolverPortfolio is one-shot; create a new instance.");
 
 		this.state = "solving";
 
