@@ -1,6 +1,7 @@
 ﻿import { create } from "zustand";
 
-import { type GroupId, UNION_BOARD } from "@/domain/boardLayout.ts";
+import { UNION_BOARD } from "@/domain/boardLayout.ts";
+import type { GroupId } from "@/types/board.ts";
 
 interface BoardState {
 	/** Cells the user has explicitly selected. */
@@ -138,9 +139,3 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 		});
 	}
 }));
-
-/** Selector: which solver should run given current state. */
-export const selectSolverMode = (state: BoardState): "exact_cover" | "mixed" =>
-	Object.values(state.groupCounts).every(n => n === 0)
-		? "exact_cover"
-		: "mixed";

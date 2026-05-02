@@ -2,7 +2,7 @@
 
 import { UNION_BOARD } from "@/domain/boardLayout.ts";
 
-import { selectSolverMode, useBoardStore } from "./boardStore.ts";
+import { useBoardStore } from "./boardStore.ts";
 
 describe("boardStore", () => {
 	beforeEach(() => {
@@ -76,11 +76,5 @@ describe("boardStore", () => {
 		expect(useBoardStore.getState().groupCounts.inner_1).toBe(0);
 		setGroupCount("inner_1", 3.7);
 		expect(useBoardStore.getState().groupCounts.inner_1).toBe(3);
-	});
-
-	it("solver mode is exact_cover when all counts are 0, mixed otherwise", () => {
-		expect(selectSolverMode(useBoardStore.getState())).toBe("exact_cover");
-		useBoardStore.getState().setGroupCount("outer_1", 2);
-		expect(selectSolverMode(useBoardStore.getState())).toBe("mixed");
 	});
 });

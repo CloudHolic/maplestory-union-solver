@@ -4,7 +4,7 @@ import type {
 	ExactCoverInput,
 	ExactCoverResult,
 	SolveOptions
-} from "@solver/wasm";
+} from "@/types/wasm";
 
 export type SolveRequest = {
 	kind: "solve";

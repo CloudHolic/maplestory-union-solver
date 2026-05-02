@@ -1,4 +1,5 @@
 ﻿import { Button, Checkbox } from "@heroui/react";
+import { useCallback, useMemo } from "react";
 
 import { SHAPES } from "@/domain/pieces.ts";
 import { validateBoardSelection } from "@/domain/validation.ts";
@@ -14,25 +15,33 @@ export function BoardControls() {
 
 	const shapeCounts = useCharacterStore(s => s.shapeCounts);
 
-	const selectedArea = selectedCells.size +
-		Object.values(groupCounts).reduce((a, b) => a + b, 0);
+	const stats = useMemo(() => {
+		const groupArea = Object.values(groupCounts).reduce((a, b) => a + b, 0);
+		const selectedArea = selectedCells.size + groupArea;
+		const availableArea = shapeCounts.reduce(
+			(sum, count, i) => sum + count * (SHAPES[i]?.cells.length ?? 0),
+			0
+		);
+		const characterCount = shapeCounts.reduce((a, b) => a + b, 0);
 
-	const availableArea = shapeCounts.reduce((sum, count, i) =>
-		sum + count * (SHAPES[i]?.cells.length ?? 0), 0);
+		return { selectedArea, availableArea, characterCount };
+	}, [selectedCells, groupCounts, shapeCounts]);
 
-	const characterCount = shapeCounts.reduce((a, b) => a + b, 0);
-	const validationError = validateBoardSelection(selectedCells, groupCounts, shapeCounts);
+	const validationError = useMemo(
+		() => validateBoardSelection(selectedCells, groupCounts, shapeCounts),
+		[selectedCells, groupCounts, shapeCounts]
+	);
 
-	const handleStart = () => {
+	const handleStart = useCallback(() => {
 		console.log("Starting...");
-	};
+	}, []);
 
 	return (
 		<div className="flex w-full items-start justify-between gap-4">
 			<div className="flex flex-col gap-1 text-base">
-				<span>내가 선택한 영역 : {selectedArea}</span>
-				<span>선택 가능한 영역 : {availableArea}</span>
-				<span>등록 공격대원 수 : {characterCount}</span>
+				<span>내가 선택한 영역 : {stats.selectedArea}</span>
+				<span>선택 가능한 영역 : {stats.availableArea}</span>
+				<span>등록 공격대원 수 : {stats.characterCount}</span>
 			</div>
 
 			<div className="flex items-center gap-3">

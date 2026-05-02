@@ -1,4 +1,5 @@
 ﻿import { Button } from "@heroui/react";
+import { memo, useCallback } from "react";
 
 import { useCharacterStore } from "@/state/characterStore.ts";
 
@@ -16,19 +17,37 @@ export function PresetTabs() {
 
 	return (
 		<div className="grid grid-cols-5 gap-2">
-			{data.presets.map((_, i) => {
-				const isSelected = i === selectedIndex;
-				return (
-					<Button
-						key={i}
-						variant={isSelected ? "primary" : "secondary"}
-						onPress={() => selectPreset(i)}
-						size="sm"
-					>
-						프리셋 {i + 1}
-					</Button>
-				);
-			})}
+			{data.presets.map((_, i) => (
+				<PresetButton
+					key={i}
+					index={i}
+					selected={i === selectedIndex}
+					onSelect={selectPreset}
+				/>
+			))}
 		</div>
 	);
 }
+
+interface PresetButtonProps {
+	index: number;
+	selected: boolean;
+
+	onSelect: (index: number) => void;
+}
+
+function PresetButtonInner({ index, selected, onSelect }: PresetButtonProps) {
+	const handlePress = useCallback(() => onSelect(index), [onSelect, index]);
+
+	return (
+		<Button
+			variant={selected ? "primary" : "secondary"}
+			onPress={handlePress}
+			size="sm"
+		>
+			프리셋 {index + 1}
+		</Button>
+	);
+}
+
+const PresetButton = memo(PresetButtonInner);

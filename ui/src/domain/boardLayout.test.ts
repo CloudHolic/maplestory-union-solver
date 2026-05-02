@@ -3,8 +3,6 @@
 import {
 	BOARD_HEIGHT,
 	BOARD_WIDTH,
-	isInnerGroup,
-	isOuterGroup,
 	parseBoardMap,
 	UNION_BOARD
 } from "./boardLayout.ts";
@@ -19,8 +17,8 @@ describe("UNION_BOARD", () => {
 
 	it("has 16 groups, 8 outer + 8 inner", () => {
 		expect(UNION_BOARD.groups).toHaveLength(16);
-		const outer = UNION_BOARD.groups.filter(g => isOuterGroup(g.id));
-		const inner = UNION_BOARD.groups.filter(g => isInnerGroup(g.id));
+		const outer = UNION_BOARD.groups.filter(g => g.id.startsWith("outer_"));
+		const inner = UNION_BOARD.groups.filter(g => g.id.startsWith("inner_"));
 		expect(outer).toHaveLength(8);
 		expect(inner).toHaveLength(8);
 	});

@@ -1,48 +1,11 @@
 ﻿// Static structure of the 22x20 union board.
 
-import { cellKey, type Coord } from "@/utils/coords.ts";
+import type { GroupId } from "@/types/board.ts";
+import type { Coord } from "@/types/wasm";
+import { cellKey } from "@/utils/coords.ts";
 
 export const BOARD_WIDTH = 22;
 export const BOARD_HEIGHT = 20;
-
-export type OuterGroupId =
-	| "outer_1"
-	| "outer_2"
-	| "outer_3"
-	| "outer_4"
-	| "outer_5"
-	| "outer_6"
-	| "outer_7"
-	| "outer_8";
-
-export type InnerGroupId =
-	| "inner_1"
-	| "inner_2"
-	| "inner_3"
-	| "inner_4"
-	| "inner_5"
-	| "inner_6"
-	| "inner_7"
-	| "inner_8";
-
-export type GroupId = OuterGroupId | InnerGroupId;
-
-export interface BoardGroup {
-	id: GroupId;
-	cells: readonly Coord[];
-	centroid: Coord;
-}
-
-export interface BoardLayout {
-	width: number;
-	height: number;
-
-	/** All 16 groups in declaration order: outer_1..8, inner_1..8. */
-	groups: readonly BoardGroup[];
-
-	/** Reverse lookup from cell key to its group id. */
-	cellToGroup: ReadonlyMap<string, GroupId>;
-}
 
 const CHAR_TO_GROUP: Record<string, GroupId> = {
 	"0": "outer_1",
@@ -106,6 +69,19 @@ const BOARD_MAP_ROWS: readonly string[] = [
 	"4666666666677777777775"
 ];
 
+interface BoardGroup {
+	id: GroupId;
+	cells: readonly Coord[];
+	centroid: Coord;
+}
+
+interface BoardLayout {
+	width: number;
+	height: number;
+	groups: readonly BoardGroup[];
+	cellToGroup: ReadonlyMap<string, GroupId>;
+}
+
 /** The 4 cells at the geometric center of the board. */
 export const BOARD_CENTER_CELLS: readonly string[] = [
 	cellKey(BOARD_HEIGHT / 2 - 1, BOARD_WIDTH / 2 - 1),
@@ -113,14 +89,6 @@ export const BOARD_CENTER_CELLS: readonly string[] = [
 	cellKey(BOARD_HEIGHT / 2, BOARD_WIDTH / 2 - 1),
 	cellKey(BOARD_HEIGHT / 2, BOARD_WIDTH / 2)
 ];
-
-export function isOuterGroup(id: GroupId): id is OuterGroupId {
-	return id.startsWith("outer_");
-}
-
-export function isInnerGroup(id: GroupId): id is InnerGroupId {
-	return id.startsWith("inner_");
-}
 
 /**
  * Cell of `cells` whose Euclidean distance to the arithmetic centroid is minimal.

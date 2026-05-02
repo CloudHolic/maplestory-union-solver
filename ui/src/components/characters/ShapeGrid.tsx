@@ -1,21 +1,42 @@
 ﻿import { NumberField } from "@heroui/react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import * as React from "react";
+import { memo, useCallback } from "react";
 
+import { shapeColor } from "@/components/shapePalette.ts";
 import { SHAPES } from "@/domain/pieces.ts";
 import { useCharacterStore } from "@/state/characterStore.ts";
 
-import { shapeColor } from "../shapePalette.ts";
 import { ShapeThumbnail } from "./ShapeThumbnail.tsx";
 
-function ShapeInput({ shapeIndex }: { shapeIndex: number }) {
+/** 3x5 grid of all 15 shape inputs. */
+export function ShapeGrid() {
+	return (
+		<div className="grid grid-cols-5 gap-3">
+			{SHAPES.map((_, i) => (
+				<ShapeInput key={i} shapeIndex={i} />
+			))}
+		</div>
+	);
+}
+
+interface ShapeInputProps {
+	shapeIndex: number;
+}
+
+function ShapeInputInner({ shapeIndex }: ShapeInputProps) {
 	const shape = SHAPES[shapeIndex]!;
 	const count = useCharacterStore(s => s.shapeCounts[shapeIndex] ?? 0);
 	const updateShapeCount = useCharacterStore(s => s.updateShapeCount);
-	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+
+	const handleChange = useCallback((v: number) => {
+		updateShapeCount(shapeIndex, Number.isNaN(v) ? 0 : v);
+	}, [updateShapeCount, shapeIndex]);
+
+	const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "Enter" || e.key === "Escape")
 			e.currentTarget.blur();
-	};
+	}, []);
 
 	return (
 		<div className="flex flex-col items-center gap-2">
@@ -29,7 +50,7 @@ function ShapeInput({ shapeIndex }: { shapeIndex: number }) {
 
 			<NumberField
 				value={count}
-				onChange={v => updateShapeCount(shapeIndex, Number.isNaN(v) ? 0 : v)}
+				onChange={handleChange}
 				minValue={0}
 				aria-label={`${shape.id} count`}
 				className="group w-20"
@@ -55,13 +76,4 @@ function ShapeInput({ shapeIndex }: { shapeIndex: number }) {
 	);
 }
 
-/** 3x5 grid of all 15 shape inputs. */
-export function ShapeGrid() {
-	return (
-		<div className="grid grid-cols-5 gap-3">
-			{SHAPES.map((_, i) => (
-				<ShapeInput key={i} shapeIndex={i} />
-			))}
-		</div>
-	);
-}
+const ShapeInput = memo(ShapeInputInner);

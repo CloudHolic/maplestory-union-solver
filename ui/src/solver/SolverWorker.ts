@@ -4,7 +4,7 @@ import type {
 	ExactCoverInput,
 	ExactCoverResult,
 	SolveOptions
-} from "@solver/wasm";
+} from "@/types/wasm";
 
 import type { SolveRequest, WorkerResponse } from "./messages.ts";
 import SolverWorkerCtor from "./solver.worker.ts?worker";

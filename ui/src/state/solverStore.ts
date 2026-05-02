@@ -3,17 +3,15 @@
 import { Effect } from "effect";
 import { create } from "zustand";
 
-import type { ExactCoverResult } from "@solver/wasm";
-
 import { runtime } from "@/services/runtime.ts";
 import { Selection } from "@/services/selection.ts";
 import { Solver } from "@/services/solver.ts";
 import { buildExactCoverInput } from "@/solver/inputBuilder.ts";
+import type { SolverStatus } from "@/types/status.ts";
+import type { ExactCoverResult } from "@/types/wasm";
 
 import { useBoardStore } from "./boardStore.ts";
 import { useCharacterStore } from "./characterStore.ts";
-
-type Status = "idle" | "running" | "done" | "error";
 
 interface InputSnapshot {
 	readonly shapeCounts: ReadonlyArray<number>;
@@ -22,7 +20,7 @@ interface InputSnapshot {
 }
 
 interface SolverStoreState {
-	status: Status;
+	status: SolverStatus;
 	inputSnapshot: InputSnapshot | null;
 	elapsedMs: number;
 	result: ExactCoverResult | null;

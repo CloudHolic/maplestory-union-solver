@@ -1,10 +1,8 @@
 ﻿// Builds an ExactCoverInput from the UI's selection state.
 
-import type { ExactCoverInput, PieceDefJson, PieceInstanceJson } from "@solver/wasm";
-
 import { BOARD_CENTER_CELLS } from "@/domain/boardLayout.ts";
 import { SHAPE_COUNT, SHAPES } from "@/domain/pieces.ts";
-import type { Coord } from "@/utils/coords.ts";
+import type { Coord, ExactCoverInput, PieceDefJson, PieceInstanceJson } from "@/types/wasm";
 
 // SHAPES are static.
 const PIECE_DEFS: ReadonlyArray<readonly [string, PieceDefJson]> = SHAPES.map(s => [

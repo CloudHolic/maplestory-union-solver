@@ -1,4 +1,6 @@
-﻿import type { ShapeDef } from "@/domain/pieces.ts";
+﻿import { memo,  useMemo } from "react";
+
+import type { ShapeDef } from "@/types/pieces.ts";
 
 interface Props {
 	shape: ShapeDef;
@@ -10,17 +12,22 @@ const CELL = 14;
 const GAP = 1.5;
 
 /** Renders a single shape as an SVG thumbnail. */
-export function ShapeThumbnail({ shape, color, active }: Props) {
-	const maxRow = Math.max(...shape.cells.map(([r]) => r));
-	const maxCol = Math.max(...shape.cells.map(([, c]) => c));
-	const w = (maxCol + 1) * CELL + GAP;
-	const h = (maxRow + 1) * CELL + GAP;
+function ShapeThumbnailInner({ shape, color, active }: Props) {
+	const dims = useMemo(() => {
+		const maxRow = Math.max(...shape.cells.map(([r]) => r));
+		const maxCol = Math.max(...shape.cells.map(([, c]) => c));
+
+		return {
+			w: (maxCol + 1) * CELL + GAP,
+			h: (maxRow + 1) * CELL + GAP
+		};
+	}, [shape]);
 
 	return (
 		<svg
-			width={w}
-			height={h}
-			viewBox={`0 0 ${w} ${h}`}
+			width={dims.w}
+			height={dims.h}
+			viewBox={`0 0 ${dims.w} ${dims.h}`}
 			className={active ? "opacity-100" : "opacity-30"}
 		>
 			{shape.cells.map(([r, c], i) => (
@@ -37,3 +44,5 @@ export function ShapeThumbnail({ shape, color, active }: Props) {
 		</svg>
 	);
 }
+
+export const ShapeThumbnail = memo(ShapeThumbnailInner);

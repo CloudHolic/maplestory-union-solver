@@ -1,12 +1,13 @@
-﻿import { cellKey, parseKey } from "@/utils/coords.ts";
+﻿import type { GroupId } from "@/types/board.ts";
+import { cellKey, parseKey } from "@/utils/coords.ts";
 
-import { type GroupId, UNION_BOARD } from "./boardLayout.ts";
+import { BOARD_CENTER_CELLS, UNION_BOARD } from "./boardLayout.ts";
 import { SHAPES } from "./pieces.ts";
 
 /** The 4 cells at the geometric center of the board. */
-export const CENTER_CELLS: ReadonlySet<string> = new Set(["9,10", "9,11", "10,10", "10,11"]);
+const CENTER_CELLS: ReadonlySet<string> = new Set(BOARD_CENTER_CELLS);
 
-export type ValidationError =
+type ValidationError =
 	| { kind: "no_pieces" }
 	| { kind: "no_selection" }
 	| { kind: "size_mismatch"; selectedArea: number; requiredArea: number }

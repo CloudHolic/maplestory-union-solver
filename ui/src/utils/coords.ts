@@ -1,8 +1,6 @@
 ﻿// Coordinate primitives for the 22x20 union board.
 
-import type { Coord } from "@solver/wasm";
-
-export type { Coord };
+import type { Coord } from "@/types/wasm";
 
 /** Stable string key for a cell position. */
 export function cellKey(r: number, c: number): string {

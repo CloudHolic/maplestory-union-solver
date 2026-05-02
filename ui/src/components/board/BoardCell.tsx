@@ -1,5 +1,7 @@
 ﻿// One cell of the union board.
 
+import { memo, useCallback } from "react";
+
 import { cellKey } from "@/utils/coords.ts";
 
 interface BoardCellProps {
@@ -13,7 +15,7 @@ interface BoardCellProps {
 
 const CELL_STROKE = 0.03;
 
-export function BoardCell({
+function BoardCellInner({
 	row,
 	col,
 	isSelected,
@@ -23,6 +25,16 @@ export function BoardCell({
 	const key = cellKey(row, col);
 	const fill = isSelected ? "fill-board-cell-selected" : "fill-board-cell";
 
+	const handleClick = useCallback(() => onClick(key), [onClick, key]);
+
+	const handleContextMenu = useCallback((e: React.MouseEvent) => {
+		if (onContextMenu === undefined)
+			return;
+
+		e.preventDefault();
+		onContextMenu(key);
+	}, [onContextMenu, key]);
+
 	return (
 		<rect
 			x={col}
@@ -31,11 +43,10 @@ export function BoardCell({
 			height={1}
 			strokeWidth={CELL_STROKE}
 			className={`${fill} cursor-pointer stroke-board-cell-border`}
-			onClick={() => onClick(key)}
-			onContextMenu={onContextMenu === undefined ? undefined : e => {
-				e.preventDefault();
-				onContextMenu(key);
-			}}
+			onClick={handleClick}
+			onContextMenu={onContextMenu === undefined ? undefined : handleContextMenu}
 		/>
 	);
 }
+
+export const BoardCell = memo(BoardCellInner);

@@ -1,7 +1,7 @@
 ﻿// Runs N solver workers in parallel and returns the result from whichever one finishes first.
-// The remaining workers are cancelled.
+// The remaining workers are canceled.
 
-import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@solver/wasm";
+import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm";
 
 import { SolverWorker } from "./SolverWorker.ts";
 
@@ -12,11 +12,11 @@ function pickWorkerCount(): number {
 	return Math.max(1, Math.min(cores - 1, MAX_WORKERS));
 }
 
-type State = "idle" | "solving" | "done";
+type PortfolioState = "idle" | "solving" | "done";
 
 export class SolverPortfolio {
 	private readonly workers: readonly SolverWorker[];
-	private state: State = "idle";
+	private state: PortfolioState = "idle";
 
 	constructor() {
 		const count = pickWorkerCount();

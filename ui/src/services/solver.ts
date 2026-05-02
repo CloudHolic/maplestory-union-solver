@@ -2,9 +2,8 @@
 
 import { Data, Effect } from "effect";
 
-import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@solver/wasm";
-
 import { SolverPortfolio } from "@/solver/SolverPortfolio.ts";
+import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wasm";
 
 // Domain errors
 

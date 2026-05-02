@@ -1,19 +1,13 @@
-﻿import type { Coord } from "@/utils/coords.ts";
+﻿import type { ShapeDef } from "@/types/pieces.ts";
 import { type BlockSize, blockSizeFromLevel } from "@/utils/levelToCells.ts";
 
-export type ClassGroup =
+type ClassGroup =
 	| "warrior"
 	| "mage"
 	| "archer"
 	| "thief"
 	| "pirate"
 	| "xenon";
-
-export interface ShapeDef {
-	id: string;
-	cells: readonly Coord[];
-	markIndex: number;
-}
 
 /**
  * The 15 distinct shapes that can appear on the union board.

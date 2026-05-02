@@ -1,7 +1,7 @@
 ﻿import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { Effect } from "effect";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8888";
 
 /** Configured HTTP client for the union-solver API server. */
 export class ApiClient extends Effect.Service<ApiClient>()("ui/ApiClient", {

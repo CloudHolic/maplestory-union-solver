@@ -1,19 +1,16 @@
 // SVG board grid.
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import {
-	BOARD_HEIGHT,
-	BOARD_WIDTH,
-	type GroupId,
-	UNION_BOARD
-} from "@/domain/boardLayout.ts";
+import { BOARD_HEIGHT, BOARD_WIDTH, UNION_BOARD } from "@/domain/boardLayout.ts";
 import { useBoardStore } from "@/state/boardStore.ts";
+import type { GroupId } from "@/types/board.ts";
 import { computeOutlinePath } from "@/utils/boardOutline.ts";
 import { cellKey, parseKey } from "@/utils/coords.ts";
 
 import { BoardCell } from "./BoardCell.tsx";
 import { GroupCountOverlay } from "./GroupCountOverlay.tsx";
+import { SolverNotice } from "./SolverNotice.tsx";
 
 // GroupCount solver mode is temporarily disabled.
 const GROUP_COUNT_ENABLED: boolean = false;
@@ -52,6 +49,7 @@ export function Board() {
 	const setGroupCount = useBoardStore(s => s.setGroupCount);
 
 	const [activeGroupId, setActiveGroupId] = useState<GroupId | null>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
 
 	// Cell keys covered by any count-mode group.
 	const countModeKeys = useMemo(() => {
@@ -64,44 +62,49 @@ export function Board() {
 		return set;
 	}, [groupCounts]);
 
-	const handleClick = (key: string) => {
+	const handleClick = useCallback((key: string) => {
 		const groupId = UNION_BOARD.cellToGroup.get(key);
 		if (groupId === undefined)
 			return;
 
 		if (groupCounts[groupId] > 0) {
-			setActiveGroupId(activeGroupId === groupId ? null : groupId);
+			setActiveGroupId(prev => prev === groupId ? null : groupId);
 			return;
 		}
 
-		if (activeGroupId !== null)
-			setActiveGroupId(null);
+		setActiveGroupId(null);
 
 		if (groupSelectMode)
 			toggleGroup(groupId);
 		else
 			toggleCell(key);
-	};
+	}, [groupCounts, groupSelectMode, toggleCell, toggleGroup]);
 
-	const handleContextMenu = (key: string) => {
+	const handleContextMenu = useCallback((key: string) => {
 		const groupId = UNION_BOARD.cellToGroup.get(key);
 		if (groupId === undefined)
 			return;
 
 		if (groupCounts[groupId] > 0) {
 			setGroupCount(groupId, 0);
-			if (activeGroupId === groupId)
-				setActiveGroupId(null);
-
+			setActiveGroupId(prev => prev === groupId ? null : prev);
 			return;
 		}
 
 		setGroupCount(groupId, 1);
 		setActiveGroupId(groupId);
-	};
+	}, [groupCounts, setGroupCount]);
+
+	const handleEditStart = useCallback((id: GroupId) => {
+		setActiveGroupId(id);
+	}, []);
+
+	const handleEditEnd = useCallback(() => {
+		setActiveGroupId(null);
+	}, []);
 
 	return (
-		<div className="relative w-full">
+		<div ref={containerRef} className="relative w-full">
 			<svg
 				viewBox={`${-PAD} ${-PAD} ${BOARD_WIDTH + 2 * PAD} ${BOARD_HEIGHT + 2 * PAD}`}
 				className="block h-auto w-full bg-board-bg"
@@ -150,10 +153,12 @@ export function Board() {
 						count={groupCounts[g.id]!}
 						boardPad={PAD}
 						editing={activeGroupId === g.id}
-						onEditStart={() => setActiveGroupId(g.id)}
-						onEditEnd={() => setActiveGroupId(null)}
+						onEditStart={handleEditStart}
+						onEditEnd={handleEditEnd}
 					/>
 				))}
+
+			<SolverNotice dismissTriggerRef={containerRef} />
 		</div>
 	);
 }
