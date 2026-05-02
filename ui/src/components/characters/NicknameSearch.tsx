@@ -1,12 +1,16 @@
 ﻿import { Input, TextField } from "@heroui/react";
 import * as React from "react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState} from "react";
 
 import { useCharacterStore } from "@/state/characterStore.ts";
 import { useRecentSearchesStore } from "@/state/recentSearchesStore.ts";
 
+interface NicknameSearchProps {
+	isDisabled?: boolean;
+}
+
 /** Nickname input with a recent-searches dropdown. */
-export function NicknameSearch() {
+export function NicknameSearch({ isDisabled = false }: NicknameSearchProps) {
 	const [input, setInput] = useState("");
 	const [open, setOpen] = useState(false);
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -62,6 +66,8 @@ export function NicknameSearch() {
 			<TextField
 				value={input}
 				onChange={handleChange}
+				isDisabled={isDisabled}
+				aria-label="Nickname"
 			>
 				<Input
 					placeholder="닉네임 입력"
@@ -72,7 +78,7 @@ export function NicknameSearch() {
 				/>
 			</TextField>
 
-			{open && filtered.length > 0 && (
+			{!isDisabled && open && filtered.length > 0 && (
 				<ul className="border-default-300 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded border bg-white shadow-lg">
 					{filtered.map((entry, i) => (
 						<RecentEntry

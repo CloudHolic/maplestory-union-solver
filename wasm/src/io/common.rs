@@ -75,7 +75,7 @@ impl SolverInput {
 /// and [`GroupCountStats`](crate::io::GroupCountStats).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(target_arch = "wasm32", derive(tsify_next::Tsify))]
-#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(target_arch = "wasm32", tsify(into_wasm_abi, from_wasm_abi, large_number_types_as_bigints))]
 #[serde(rename_all = "camelCase")]
 pub struct SolverStats {
     pub node_count: u64,

@@ -44,7 +44,7 @@ func New(deps Deps) *echo.Echo {
 	api := e.Group("/api")
 	api.Use(rateLimitMiddleware(deps.Config.RateLimit))
 	api.GET("/characters/:nickname", chHandler.GetByNickname)
-	api.PUT("/character/:nickname/selection",
+	api.PUT("/characters/:nickname/selection",
 		chHandler.SaveSelection,
 		middleware.BodyLimit(1<<14)) // 16KB
 

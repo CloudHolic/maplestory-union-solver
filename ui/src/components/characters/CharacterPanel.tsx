@@ -1,6 +1,7 @@
 ﻿import { Button } from "@heroui/react";
 
 import { useCharacterStore } from "@/state/characterStore.ts";
+import { useSolverStore } from "@/state/solverStore.ts";
 
 import { NicknameSearch } from "./NicknameSearch.tsx";
 import { PresetTabs } from "./PresetTabs.tsx";
@@ -12,9 +13,11 @@ export function CharacterPanel() {
 	const errorMessage = useCharacterStore(s => s.errorMessage);
 	const resetShapeCounts = useCharacterStore(s => s.resetShapeCounts);
 
+	const isRunning = useSolverStore(s => s.status === "running");
+
 	return (
 		<div className="flex flex-col gap-4">
-			<NicknameSearch />
+			<NicknameSearch isDisabled={isRunning} />
 
 			{status === "loading" && (
 				<p className="text-sm text-foreground/60">
@@ -33,15 +36,16 @@ export function CharacterPanel() {
 					<h3 className="text-sm">
 						<span className="font-bold">{nickname}</span>의 공격대원 정보 (실시간)
 					</h3>
-					<PresetTabs />
+					<PresetTabs isDisabled={isRunning} />
 				</>
 			)}
 
-			<ShapeGrid />
+			<ShapeGrid isDisabled={isRunning} />
 
 			<Button
 				variant="danger"
 				onPress={resetShapeCounts}
+				isDisabled={isRunning}
 				className="self-end"
 			>
 				블록 초기화

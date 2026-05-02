@@ -9,12 +9,16 @@ import { useCharacterStore } from "@/state/characterStore.ts";
 
 import { ShapeThumbnail } from "./ShapeThumbnail.tsx";
 
+interface ShapeGridProps {
+	isDisabled?: boolean;
+}
+
 /** 3x5 grid of all 15 shape inputs. */
-export function ShapeGrid() {
+export function ShapeGrid({ isDisabled = false }: ShapeGridProps) {
 	return (
 		<div className="grid grid-cols-5 gap-3">
 			{SHAPES.map((_, i) => (
-				<ShapeInput key={i} shapeIndex={i} />
+				<ShapeInput key={i} shapeIndex={i} isDisabled={isDisabled} />
 			))}
 		</div>
 	);
@@ -22,9 +26,10 @@ export function ShapeGrid() {
 
 interface ShapeInputProps {
 	shapeIndex: number;
+	isDisabled: boolean;
 }
 
-function ShapeInputInner({ shapeIndex }: ShapeInputProps) {
+function ShapeInputInner({ shapeIndex, isDisabled }: ShapeInputProps) {
 	const shape = SHAPES[shapeIndex]!;
 	const count = useCharacterStore(s => s.shapeCounts[shapeIndex] ?? 0);
 	const updateShapeCount = useCharacterStore(s => s.updateShapeCount);
@@ -52,6 +57,7 @@ function ShapeInputInner({ shapeIndex }: ShapeInputProps) {
 				value={count}
 				onChange={handleChange}
 				minValue={0}
+				isDisabled={isDisabled}
 				aria-label={`${shape.id} count`}
 				className="group w-20"
 			>

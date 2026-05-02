@@ -21,6 +21,7 @@ interface BoardState {
 	groupSelectMode: boolean;
 
 	toggleCell: (key: string) => void;
+	setCell: (key: string, selected: boolean) => void;
 	toggleGroup: (groupId: GroupId) => void;
 	setGroupCount: (groupId: GroupId, count: number) => void;
 	setGroupSelectMode: (on: boolean) => void;
@@ -28,22 +29,10 @@ interface BoardState {
 }
 
 const INITIAL_GROUP_COUNTS: Readonly<Record<GroupId, number>> = {
-	outer_1: 0,
-	outer_2: 0,
-	outer_3: 0,
-	outer_4: 0,
-	outer_5: 0,
-	outer_6: 0,
-	outer_7: 0,
-	outer_8: 0,
-	inner_1: 0,
-	inner_2: 0,
-	inner_3: 0,
-	inner_4: 0,
-	inner_5: 0,
-	inner_6: 0,
-	inner_7: 0,
-	inner_8: 0
+	outer_1: 0, outer_2: 0, outer_3: 0, outer_4: 0,
+	outer_5: 0, outer_6: 0, outer_7: 0, outer_8: 0,
+	inner_1: 0, inner_2: 0, inner_3: 0, inner_4: 0,
+	inner_5: 0, inner_6: 0, inner_7: 0, inner_8: 0
 };
 
 const EMPTY_SELECTION: ReadonlySet<string> = new Set();
@@ -56,18 +45,22 @@ function cellsOfGroup(groupId: GroupId): readonly string[] {
 	return group.cells.map(([r, c]) => `${r},${c}`);
 }
 
+function isCellSelectable(key: string, groupCounts: Readonly<Record<GroupId, number>>): boolean {
+	const groupId = UNION_BOARD.cellToGroup.get(key);
+	if (groupId === undefined)
+		return false;
+
+	return groupCounts[groupId] === 0;
+}
+
 export const useBoardStore = create<BoardState>((set, get) => ({
 	selectedCells: EMPTY_SELECTION,
 	groupCounts: INITIAL_GROUP_COUNTS,
 	groupSelectMode: false,
 
 	toggleCell: key => {
-		const groupId = UNION_BOARD.cellToGroup.get(key);
-		if (groupId === undefined)
-			return;
-
 		const { groupCounts, selectedCells } = get();
-		if (groupCounts[groupId] > 0)
+		if (!isCellSelectable(key, groupCounts))
 			return;
 
 		const next = new Set(selectedCells);
@@ -75,6 +68,24 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 			next.delete(key);
 		else
 			next.add(key);
+
+		set({ selectedCells: next });
+	},
+
+	setCell: (key, selected) => {
+		const { groupCounts, selectedCells } = get();
+		if (!isCellSelectable(key, groupCounts))
+			return;
+
+		const has = selectedCells.has(key);
+		if (has === selected)
+			return;
+
+		const next = new Set(selectedCells);
+		if (selected)
+			next.add(key);
+		else
+			next.delete(key);
 
 		set({ selectedCells: next });
 	},
@@ -134,8 +145,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 	clear: () => {
 		set({
 			selectedCells: EMPTY_SELECTION,
-			groupCounts: INITIAL_GROUP_COUNTS,
-			groupSelectMode: false
+			groupCounts: INITIAL_GROUP_COUNTS
 		});
 	}
 }));

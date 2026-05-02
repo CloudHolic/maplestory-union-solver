@@ -163,3 +163,18 @@ export const useSolverStore = create<SolverStoreState>((set, get) => ({
 		});
 	}
 }));
+
+function resetIfDone(): void {
+	if (useSolverStore.getState().status === "done")
+		useSolverStore.getState().reset();
+}
+
+useBoardStore.subscribe((state, prev) => {
+	if (state.selectedCells !== prev.selectedCells || state.groupCounts !== prev.groupCounts)
+		resetIfDone();
+});
+
+useCharacterStore.subscribe((state, prev) => {
+	if (state.shapeCounts !== prev.shapeCounts)
+		resetIfDone();
+});

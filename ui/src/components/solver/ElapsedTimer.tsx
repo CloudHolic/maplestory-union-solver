@@ -19,9 +19,8 @@ export function ElapsedTimer() {
 	const status = useSolverStore(s => s.status);
 
 	const muted = status === "done" || status === "error";
-	const className = "font-mono text-sm tabular-nums " + muted
-		? "text-zinc-500"
-		: "text-zinc-200";
+	const className = "font-mono text-sm tabular-nums " +
+		(muted ? "text-zinc-500" : "text-zinc-200");
 
 	return (
 		<span
