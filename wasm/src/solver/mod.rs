@@ -12,3 +12,4 @@ pub use cancel::CancelFlag;
 pub use exact_cover::{SolveOptions, solve_exact_cover};
 pub(crate) use pruning::{IslandWorkspace, island_check, neighbor_check, parity_check};
 pub(crate) use state::{SearchState, PlacementUndo};
+pub(crate) use exact_cover::TypeGroup;

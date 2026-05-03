@@ -11,9 +11,8 @@
 //! - [`neighbor_check`]: after a placement, validates that no adjacent uncovered cell
 //!   has been left with zero valid placements.
 
-use crate::base::CAPACITY;
 use crate::domain::placement::Placement;
-use crate::solver::SearchState;
+use crate::solver::{SearchState, TypeGroup};
 
 /// Workspace buffers reused across [`island_check`] cells.
 ///
@@ -211,16 +210,11 @@ pub(crate) fn island_check(
 pub(crate) fn neighbor_check(
     pl: &Placement,
     state: &SearchState,
-    cell_to_placements: &[Vec<u32>],
+    cell_pl_by_type: &[Vec<TypeGroup>],
     placements: &[Placement]
 ) -> bool {
-    // Iterate set bits of neighbor_bits.
-    // For each adjacent uncovered cell, check that at least one valid placement
-    // of a remaining type still covers it.
-    for cell_idx in 0..CAPACITY {
-        if !pl.neighbor_bits.test(cell_idx) {
-            continue;
-        }
+    for &idx in &pl.neighbor_indices {
+        let cell_idx = idx as usize;
 
         // Skip cells already covered by other placements.
         if state.covered.test(cell_idx) {
@@ -228,16 +222,18 @@ pub(crate) fn neighbor_check(
         }
 
         let mut found = false;
-        for &p_idx in &cell_to_placements[cell_idx] {
-            let candidate = &placements[p_idx as usize];
-
-            if state.remaining[candidate.type_idx as usize] == 0 {
+        'groups: for group in &cell_pl_by_type[cell_idx] {
+            // Group-level skip
+            if state.remaining[group.type_idx as usize] == 0 {
                 continue;
             }
-
-            if !state.covered.has_overlap(&candidate.bits) {
-                found = true;
-                break;
+            
+            for &p_idx in &group.placements {
+                let candidate = &placements[p_idx as usize];
+                if !state.covered.has_overlap(&candidate.bits) {
+                    found = true;
+                    break 'groups;
+                }
             }
         }
 
@@ -268,7 +264,7 @@ mod tests {
         Placement {
             type_idx,
             bits,
-            neighbor_bits: BitSet::new(),
+            neighbor_indices: Vec::new(),
             b_count,
             mark_on_center,
             cell_indices: cells.to_vec(),
@@ -370,10 +366,12 @@ mod tests {
 
     fn make_placement_with_neighbors(cells: &[u16], neighbors: &[u16]) -> Placement {
         let mut p = make_test_placement(0, cells, 0, false);
-        for &n in neighbors {
-            p.neighbor_bits.set(n as usize);
-        }
+        p.neighbor_indices = neighbors.to_vec();
         p
+    }
+    
+    fn singleton_group(type_idx: u16, placement_idx: u32) -> TypeGroup {
+        TypeGroup { type_idx, placements: vec![placement_idx] }
     }
 
     #[test]
@@ -382,21 +380,21 @@ mod tests {
         let pl = make_placement_with_neighbors(&[10], &[5]);
         let other_placement = make_test_placement(0, &[5, 6], 0, false);
         let placements = vec![pl.clone(), other_placement];
-        let cell_to_placements = vec![
-            vec![],          // cell 0: no placements cover
+        let cell_pl_by_type: Vec<Vec<TypeGroup>> = vec![
             vec![],
             vec![],
             vec![],
             vec![],
-            vec![1],         // cell 5 covered by placement 1
-            vec![1],         // cell 6 covered by placement 1
+            vec![],
+            vec![singleton_group(0, 1)], // cell 5 covered by placement 1, type 0
+            vec![singleton_group(0, 1)], // cell 6 covered by placement 1, type 0
             vec![],
             vec![],
             vec![],
-            vec![0],         // cell 10 covered by placement 0
+            vec![singleton_group(0, 0)], // cell 10 covered by placement 0, type 0
         ];
 
-        assert!(neighbor_check(&pl, &state, &cell_to_placements, &placements));
+        assert!(neighbor_check(&pl, &state, &cell_pl_by_type, &placements));
     }
 
     #[test]
@@ -407,13 +405,14 @@ mod tests {
         let pl = make_placement_with_neighbors(&[10], &[5]);
         let other = make_test_placement(0, &[5], 0, false);
         let placements = vec![pl.clone(), other];
-        let cell_to_placements = vec![
+        let cell_pl_by_type: Vec<Vec<TypeGroup>> = vec![
             vec![], vec![], vec![], vec![], vec![],
-            vec![1],
-            vec![], vec![], vec![], vec![], vec![0],
+            vec![singleton_group(0, 1)],
+            vec![], vec![], vec![], vec![],
+            vec![singleton_group(0, 0)]
         ];
 
-        assert!(!neighbor_check(&pl, &state, &cell_to_placements, &placements));
+        assert!(!neighbor_check(&pl, &state, &cell_pl_by_type, &placements));
     }
 
     #[test]

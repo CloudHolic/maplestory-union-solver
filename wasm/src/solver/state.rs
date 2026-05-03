@@ -167,12 +167,9 @@ mod tests {
 
     fn make_test_placement(type_idx: u16, mark_on_center: bool, cells: &[u16]) -> Placement {
         let mut bits = BitSet::new();
-        let mut neighbor_bits = BitSet::new();
         for &i in cells {
             bits.set(i as usize);
         }
-        // Neighbor bits doesn't matter for these tests.
-        neighbor_bits.set(0);
 
         let cells_owned: Vec<u16> = cells.to_vec();
         let coord_cells: Vec<Coord> = cells.iter().map(|&i| (0, i as i8)).collect();
@@ -180,7 +177,7 @@ mod tests {
         Placement {
             type_idx,
             bits,
-            neighbor_bits,
+            neighbor_indices: Vec::new(),
             b_count: 0,
             mark_on_center,
             cell_indices: cells_owned,

@@ -35,6 +35,9 @@ export class SolverPortfolio {
 		if (this.state !== "idle")
 			throw new Error("SolverPortfolio is one-shot; create a new instance.");
 
+		console.log(input);
+		console.log(options);
+
 		this.state = "solving";
 
 		const promises = this.workers.map(w => w.solve(input, options));

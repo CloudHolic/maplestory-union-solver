@@ -23,6 +23,12 @@ use crate::solver::{
     island_check, neighbor_check, parity_check
 };
 
+/// A group of placements covering some cell, all the same piece type.
+#[derive(Debug, Clone)]
+pub(crate) struct TypeGroup {
+    pub type_idx: u16,
+    pub placements: Vec<u32>
+}
 
 // ─── Solve options ──────────────────────────────────────────────────
 
@@ -93,10 +99,8 @@ struct SolveContext {
     /// All valid placements, in a flat list.
     placements: Vec<Placement>,
 
-    /// `cell_to_placements[c]` lists indices into `placements` of every placement
-    /// that covers cell `c`.
-    /// Used by the pruner's neighbor check and by the per-cell MRV scan.
-    cell_to_placements: Vec<Vec<u32>>,
+    /// `cell_pl_by_type[c]` lists type-grouped placements covering cell `c`.
+    cell_pl_by_type: Vec<Vec<TypeGroup>>,
 
     /// 4-connectivity adjacency list over board cells.
     /// `adj_list[i]` is the list of board-cell indices orthogonally adjacent to `i`.
@@ -184,7 +188,15 @@ impl SolveContext {
         }
 
         // 6. Enumerate all valid placements
-        let placements = enumerate_all_placements(&piece_instances, &piece_defs_map, &board)?;
+        let unique_pieces: Vec<PieceInstance> = type_ids
+            .iter()
+            .enumerate()
+            .map(|(ti, def_id)| PieceInstance {
+                type_idx: ti as u16,
+                def_id: def_id.clone(),
+            })
+            .collect();
+        let placements = enumerate_all_placements(&unique_pieces, &piece_defs_map, &board)?;
 
         // Reject inputs where no placement can satisfy the center-mark constraint.
         if !placements.iter().any(|p| p.mark_on_center) {
@@ -215,12 +227,29 @@ impl SolveContext {
             }
         }
 
-        // 9. Build per-cell and per-type placement indices
-        let mut cell_to_placements: Vec<Vec<u32>> = (0..total_cells as usize).map(|_| Vec::new()).collect();
-        for (pi, pl) in placements.iter().enumerate() {
-            let pi32 = pi as u32;
-            for &cell_idx in &pl.cell_indices {
-                cell_to_placements[cell_idx as usize].push(pi32);
+        // 9. Build cell -> Vec<TypeGroup>.
+        let mut cell_pl_by_type: Vec<Vec<TypeGroup>> =
+            (0..total_cells as usize).map(|_| Vec::new()).collect();
+        {
+            let mut temp: Vec<HashMap<u16, Vec<u32>>> =
+                (0..total_cells as usize).map(|_| HashMap::new()).collect();
+
+            for (pi, pl) in placements.iter().enumerate() {
+                let pi32 = pi as u32;
+                for &cell_idx in &pl.cell_indices {
+                    temp[cell_idx as usize]
+                        .entry(pl.type_idx)
+                        .or_default()
+                        .push(pi32)
+                }
+            }
+
+            for (ci, type_map) in temp.into_iter().enumerate() {
+                for (type_idx, placements) in type_map {
+                    cell_pl_by_type[ci].push(TypeGroup { type_idx, placements });
+                }
+                
+                cell_pl_by_type[ci].sort_by_key(|g| g.type_idx);
             }
         }
 
@@ -235,7 +264,7 @@ impl SolveContext {
             type_max_black,
             center_mark_counts,
             placements,
-            cell_to_placements,
+            cell_pl_by_type,
             adj_list
         })
     }
@@ -281,6 +310,9 @@ struct BacktrackEnv {
     /// during a single solve, traversed in this order.
     cell_order: Vec<u16>,
 
+    /// Per-cell type-grounded placement indices.
+    cell_pl_by_type: Vec<Vec<TypeGroup>>,
+
     /// Number of recursion-tree nodes visited in the current restart.
     /// Compared against `node_budget` for early termination.
     nodes_this_restart: u64,
@@ -319,13 +351,20 @@ struct BacktrackEnv {
 
 impl BacktrackEnv {
     fn new(ctx: &SolveContext) -> Self {
-        let cell_order: Vec<u16> = (0..ctx.total_cells).collect();
+        let mut cell_order: Vec<u16> = (0..ctx.total_cells).collect();
+        cell_order.sort_by_key(|&i| {
+            ctx.cell_pl_by_type[i as usize]
+                .iter()
+                .map(|g| g.placements.len())
+                .sum::<usize>()
+        });
         let initial_cmtr = ctx.initial_center_mark_type_remaining();
 
         Self {
             state: SearchState::new(ctx.type_counts.clone(), initial_cmtr),
             island_ws: IslandWorkspace::new(ctx.total_cells as usize),
             cell_order,
+            cell_pl_by_type: ctx.cell_pl_by_type.clone(),
             nodes_this_restart: 0,
             node_budget: 0,
             budget_exhausted: false,
@@ -349,6 +388,13 @@ impl BacktrackEnv {
         self.node_budget = node_budget;
         self.budget_exhausted = false;
 
+        for cell_groups in &mut self.cell_pl_by_type {
+            shuffle(cell_groups, rng);
+            for group in cell_groups.iter_mut() {
+                shuffle(&mut group.placements, rng);
+            }
+        }
+        
         shuffle(&mut self.cell_order, rng);
     }
 }
@@ -450,7 +496,7 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
                 env.unit_propagations += 1;
 
                 // Neighbor check: does this placement strand any cell?
-                if !neighbor_check(pl, &env.state, &ctx.cell_to_placements, &ctx.placements) {
+                if !neighbor_check(pl, &env.state, &ctx.cell_pl_by_type, &ctx.placements) {
                     // Undo this unit and the rest of the cascade.
                     env.neighbor_prunes += 1;
                     env.state.undo_placement(pl, undo);
@@ -474,39 +520,57 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
         }
     };
 
-    // Branch on `branch` cell. Iterate candidate placements; for each,
-    // apply, recurse, undo. Return on first success.
-    let candidates = ctx.cell_to_placements[branch as usize].clone();
-    for &p_idx in &candidates {
-        let pl = &ctx.placements[p_idx as usize];
+    if cascade_depth > 0 {
+        if !parity_check(&env.state, ctx.total_black, ctx.total_white, &ctx.type_min_black, &ctx.type_max_black) {
+            env.parity_prunes += 1;
+            undo_cascade(ctx, env, cascade_depth);
+            return false;
+        }
+        if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells, &mut env.island_ws) {
+            env.island_prunes += 1;
+            undo_cascade(ctx, env, cascade_depth);
+            return false;
+        }
+    }
+
+    // Iterate via indices to avoid Vec::clone of candidates per branch node.
+    let groups_len = env.cell_pl_by_type[branch as usize].len();
+    'outer: for gi in 0..groups_len {
+        let ti = env.cell_pl_by_type[branch as usize][gi].type_idx;
 
         // Skip placements that are no longer applicable.
-        if env.state.remaining[pl.type_idx as usize] == 0 {
+        if env.state.remaining[ti as usize] == 0 {
             continue;
         }
 
-        if env.state.covered.has_overlap(&pl.bits) {
-            continue;
-        }
+        let placements_len = env.cell_pl_by_type[branch as usize][gi].placements.len();
+        for k in 0..placements_len {
+            let p_idx = env.cell_pl_by_type[branch as usize][gi].placements[k];
+            let pl = &ctx.placements[p_idx as usize];
 
-        let drop = will_drop_center_mark_type(ctx, &env.state, pl);
-        let undo = env.state.apply_placement(pl, p_idx as usize, drop);
+            if env.state.covered.has_overlap(&pl.bits) {
+                continue;
+            }
 
-        if !neighbor_check(pl, &env.state, &ctx.cell_to_placements, &ctx.placements) {
-            env.neighbor_prunes += 1;
+            let drop = will_drop_center_mark_type(ctx, &env.state, pl);
+            let undo = env.state.apply_placement(pl, p_idx as usize, drop);
+
+            if !neighbor_check(pl, &env.state, &ctx.cell_pl_by_type, &ctx.placements) {
+                env.neighbor_prunes += 1;
+                env.state.undo_placement(pl, undo);
+                continue;
+            }
+
+            if backtrack(ctx, env, cancel) {
+                return true;
+            }
+
             env.state.undo_placement(pl, undo);
-            continue;
-        }
 
-        if backtrack(ctx, env, cancel) {
-            return true;
-        }
-
-        env.state.undo_placement(pl, undo);
-
-        if env.budget_exhausted {
-            break;
-        }
+            if env.budget_exhausted {
+                break 'outer;
+            }
+        }        
     }
 
     // No branch succeeded. Undo the cascade and report failure.
@@ -565,28 +629,36 @@ fn scan_uncovered(ctx: &SolveContext, env: &mut BacktrackEnv) -> MrvOutcome {
         all_covered = false;
 
         // Count valid placements for this cell.
-        let candidates = &ctx.cell_to_placements[cell_idx as usize];
+        let groups = &env.cell_pl_by_type[cell_idx as usize];
         let mut count: u32 = 0;
         let mut first_valid: u32 = 0;
 
-        for &p_idx in candidates {
-            let pl = &ctx.placements[p_idx as usize];
+        let current_best_count: u32 = match best_branch_cell {
+            Some((_, c)) => c,
+            None => u32::MAX
+        };
 
-            if env.state.remaining[pl.type_idx as usize] == 0 {
+        'outer: for group in groups {
+            // Group-level skip: entire group skippable when type fully placed.
+            if env.state.remaining[group.type_idx as usize] == 0 {
                 continue;
             }
 
-            if env.state.covered.has_overlap(&pl.bits) {
-                continue;
-            }
+            for &p_idx in &group.placements {
+                let pl = &ctx.placements[p_idx as usize];
 
-            if count == 0 {
-                first_valid = p_idx;
-            }
+                if env.state.covered.has_overlap(&pl.bits) {
+                    continue;
+                }
 
-            count += 1;
-            if count >= 2 {
-                break;
+                if count == 0 {
+                    first_valid = p_idx;
+                }
+
+                count += 1;
+                if count >= current_best_count {
+                    break 'outer;
+                }
             }
         }
 
@@ -598,7 +670,6 @@ fn scan_uncovered(ctx: &SolveContext, env: &mut BacktrackEnv) -> MrvOutcome {
             return MrvOutcome::Unit { placement_idx: first_valid };
         }
 
-        // count >= 2: candidate for branch. Track minimum.
         match best_branch_cell {
             Some((_, best_count)) if best_count <= count => {}
             _ => {

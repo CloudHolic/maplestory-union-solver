@@ -20,7 +20,7 @@ use crate::domain::Coord;
 pub(crate) struct Placement {
     pub type_idx: u16,
     pub bits: BitSet,
-    pub neighbor_bits: BitSet,
+    pub neighbor_indices: Vec<u16>,
     pub b_count: u8,
     pub mark_on_center: bool,
     pub cell_indices: Vec<u16>,
@@ -47,14 +47,10 @@ mod tests {
         bits.set(11);
         bits.set(12);
 
-        let mut neighbor_bits = BitSet::new();
-        neighbor_bits.set(9);
-        neighbor_bits.set(13);
-
         Placement {
             type_idx: 0,
             bits,
-            neighbor_bits,
+            neighbor_indices: vec![9, 13],
             b_count: 2,
             mark_on_center: false,
             cell_indices: vec![10, 11, 12],

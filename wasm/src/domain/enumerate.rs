@@ -125,13 +125,13 @@ fn enumerate_variant(
         }
 
         // Compute neighbor_bits: cells adjacent to the placement but not inside it.
-        let neighbor_bits = compute_neighbor_bits(&cells, board, &bits);
+        let neighbor_indices = compute_neighbor_bits(&cells, board, &bits);
         let mark = (variant.mark.0 + dr, variant.mark.1 + dc);
         let mark_on_center = center_set.contains(&mark);
 
         out.push(Placement {
             type_idx: piece.type_idx,
-            bits, neighbor_bits, b_count, mark_on_center,
+            bits, neighbor_indices, b_count, mark_on_center,
             cell_indices, mark, cells
         });
     }
@@ -147,23 +147,25 @@ fn compute_neighbor_bits(
     placement_cells: &[Coord],
     board: &BoardLayout,
     placement_bits: &BitSet
-) -> BitSet {
+) -> Vec<u16> {
     const DIRS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
-    let mut neighbor_bits = BitSet::new();
+    let mut seen = BitSet::new();
+    let mut indices: Vec<u16> = Vec::with_capacity(8);
 
     for &(r, c) in placement_cells {
         for (dr, dc) in DIRS {
             let nb = (r + dr, c + dc);
             if let Some(&nb_idx) = board.coord_to_idx.get(&nb) {
                 let idx = nb_idx as usize;
-                if !placement_bits.test(idx) {
-                    neighbor_bits.set(idx);
+                if !placement_bits.test(idx) && !seen.test(idx) {
+                    seen.set(idx);
+                    indices.push(nb_idx);
                 }
             }
         }
     }
 
-    neighbor_bits
+    indices
 }
 
 #[cfg(test)]
@@ -321,16 +323,27 @@ mod tests {
             // Placement cells should not be in neighbor_bits.
             for &idx in &pl.cell_indices {
                 assert!(
-                    !pl.neighbor_bits.test(idx as usize),
+                    !pl.neighbor_indices.contains(&idx),
                     "placement cell {idx} should not be in neighbor_bits"
                 );
             }
+            
+            let mut sorted = pl.neighbor_indices.clone();
+            sorted.sort_unstable();
+            sorted.dedup();
+            assert_eq!(
+                sorted.len(),
+                pl.neighbor_indices.len(),
+                "neighbor_indices contains duplicates: {:?}",
+                pl.neighbor_indices
+            );
+            
             // Neighbor count for a 1x1 on a corner is 2, edge is 3, center is 4.
             let center_pl = pl.cells[0] == (1, 1);
             let on_edge = pl.cells[0].0 == 1 || pl.cells[0].1 == 1;
             let expected = if center_pl { 4 } else if on_edge { 3 } else { 2 };
             assert_eq!(
-                pl.neighbor_bits.count_ones() as usize,
+                pl.neighbor_indices.len(),
                 expected,
                 "wrong neighbor count for cell {:?}",
                 pl.cells[0]
