@@ -5,11 +5,9 @@ import type { ExactCoverInput, ExactCoverResult, SolveOptions } from "@/types/wa
 
 import { SolverWorker } from "./SolverWorker.ts";
 
-const MAX_WORKERS = 20;
-
 function pickWorkerCount(): number {
 	const cores = navigator.hardwareConcurrency ?? 4;
-	return Math.max(1, Math.min(cores - 1, MAX_WORKERS));
+	return Math.max(2, cores - 1);
 }
 
 type PortfolioState = "idle" | "solving" | "done";
@@ -35,12 +33,13 @@ export class SolverPortfolio {
 		if (this.state !== "idle")
 			throw new Error("SolverPortfolio is one-shot; create a new instance.");
 
-		console.log(input);
-		console.log(options);
-
 		this.state = "solving";
 
-		const promises = this.workers.map(w => w.solve(input, options));
+		const baseSeed = crypto.getRandomValues(new Uint32Array(1))[0]!;
+		const promises = this.workers.map((w, i) => {
+			const seed = (baseSeed + i * 0x9E3779B9) >>> 0;
+			return w.solve(input, { ...options, seed });
+		});
 
 		// Pre-attach no-op catches.
 		for (const p of promises)
