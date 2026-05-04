@@ -1,73 +1,82 @@
-# React + TypeScript + Vite
+# maplestory-union-solver/ui
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React frontend for the MapleStory Union placement solver.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| | |
+|---|---|
+| Framework | React 19 + Vite + TypeScript |
+| UI components | HeroUI v3 + Tailwind v4 |
+| State | Zustand (UI state) + Effect-TS (services) |
+| Formatting | @stylistic/eslint-plugin |
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 22+
+- pnpm
 
-## Expanding the ESLint configuration
+## Quick start
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-	globalIgnores(["dist"]),
-	{
-		files: ["**/*.{ts,tsx}"],
-		extends: [
-			// Other configs...
-
-			// Remove tseslint.configs.recommended and replace with this
-			tseslint.configs.recommendedTypeChecked,
-			// Alternatively, use this for stricter rules
-			tseslint.configs.strictTypeChecked,
-			// Optionally, add this for stylistic rules
-			tseslint.configs.stylisticTypeChecked
-
-			// Other configs...
-		],
-		languageOptions: {
-			parserOptions: {
-				project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-				tsconfigRootDir: import.meta.dirname
-			}
-			// other options...
-		}
-	}
-]);
+```sh
+cd ui
+pnpm install
+pnpm build:wasm	# build WASM solver	
+pnpm dev		# dev server at localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server proxies `/api` to `localhost:8888` (Go server).
+Start the server separately — see `../server/README.md`.
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
+## WASM solver
 
-export default defineConfig([
-	globalIgnores(["dist"]),
-	{
-		files: ["**/*.{ts,tsx}"],
-		extends: [
-			// Other configs...
-			// Enable lint rules for React
-			reactX.configs["recommended-typescript"],
-			// Enable lint rules for React DOM
-			reactDom.configs.recommended
-		],
-		languageOptions: {
-			parserOptions: {
-				project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-				tsconfigRootDir: import.meta.dirname
-			}
-			// other options...
-		}
-	}
-]);
+The solver runs in Web Workers as a compiled WebAssembly module.
+The pre-built artifact is checked in at `wasm-pkg/`. To rebuild
+from Rust source:
+
+```sh
+pnpm build:wasm   # runs wasm-pack, outputs to wasm-pkg/
 ```
+
+Requires `wasm-pack` and the Rust toolchain — see
+`../wasm/README.md`.
+
+## Build
+
+```sh
+pnpm build        # type-check + Vite build → dist/
+pnpm preview      # preview the production build locally
+```
+
+## Lint
+
+```sh
+pnpm lint         # eslint (includes @stylistic formatting check)
+```
+
+## Tests
+
+```sh
+pnpm test         # vitest (unit tests for domain/, utils/)
+```
+
+## Project layout
+
+```
+src/
+├── components/
+│   ├── board/        SVG board grid, overlays, controls
+│   ├── characters/   Nickname search, preset tabs, shape grid
+│   └── solver/       Elapsed timer
+├── domain/           Pure business logic (pieces, validation, layout)
+├── hooks/            Favicon, notifications, solver outcome
+├── services/         Effect-TS services (API client, solver, selection)
+├── solver/           Worker pool (SolverPortfolio, SolverWorker, worker entry)
+├── state/            Zustand stores (board, character, solver, recent searches)
+├── types/            Shared TypeScript types
+└── utils/            Coords, board outline, favicon SVG
+```
+
+## License
+
+MIT. See the repository root `LICENSE-POLICY.md`.

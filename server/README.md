@@ -19,7 +19,7 @@ copy .env.example .env
 go run ./cmd/server
 ```
 
-The server listens on `:8080` by default. SQLite database file
+The server listens on `:8888` by default. SQLite database file
 is created at `./data/union.db` on first run.
 
 ## Configuration
@@ -31,7 +31,7 @@ a `.env` file in the working directory. OS env vars override
 | Variable                | Required | Default                          | Notes                                          |
 |-------------------------|----------|----------------------------------|------------------------------------------------|
 | `NEXON_API_KEY`         | yes      | —                                | NEXON Open API key                             |
-| `SERVER_ADDR`           | no       | `:8080`                          | listen address                                 |
+| `SERVER_ADDR`           | no       | `:8888`                          | listen address                                 |
 | `DATABASE_URL`          | no       | `file:./data/union.db?_pragma=…` | modernc.org/sqlite DSN                         |
 | `RATE_LIMIT_PER_MINUTE` | no       | `30`                             | per-IP cap on `/api`; burst is `rate/3`        |
 | `TRUSTED_PROXIES`       | no       | _(empty)_                        | reserved for slice 6 (XFF header validation)   |

@@ -67,7 +67,9 @@ which produces a static bundle in `ui/dist/`.
 This repository uses multiple licenses. See [`LICENSE-POLICY.md`](LICENSE-POLICY.md)
 for the mapping between directories and applicable licenses.
 
-- Solver core and ML pipeline: **LGPL-3.0-or-later**
+- Solver core (`wasm/`): **AGPL-3.0-or-later**
+- ML pipeline (`ml/`): **GPL-3.0-or-later**
 - Frontend (`ui/`): **MIT**
+- Server (`server/`): **MIT**
 - Trained models (`models/`): **CC-BY-4.0**
 - Documentation (`docs/`): **CC-BY-4.0**
