@@ -1,6 +1,6 @@
-﻿import { Input, TextField } from "@heroui/react";
+﻿import { CloseButton, SearchField } from "@heroui/react";
 import * as React from "react";
-import { memo, useCallback, useMemo, useState} from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 
 import { useCharacterStore } from "@/state/characterStore.ts";
 import { useRecentSearchesStore } from "@/state/recentSearchesStore.ts";
@@ -17,6 +17,9 @@ export function NicknameSearch({ isDisabled = false }: NicknameSearchProps) {
 
 	const recents = useRecentSearchesStore(s => s.entries);
 	const search = useCharacterStore(s => s.search);
+	const clearSearch = useCharacterStore(s => s.clearSearch);
+
+	const showClear = !isDisabled && input !== "";
 
 	const filtered = useMemo(() => {
 		if (input === "")
@@ -42,6 +45,13 @@ export function NicknameSearch({ isDisabled = false }: NicknameSearchProps) {
 		setHighlightedIndex(-1);
 	}, []);
 
+	const handleClear = useCallback(() => {
+		setInput("");
+		setOpen(false);
+		setHighlightedIndex(-1);
+		clearSearch();
+	}, [clearSearch]);
+
 	const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
@@ -58,25 +68,33 @@ export function NicknameSearch({ isDisabled = false }: NicknameSearchProps) {
 		}
 	}, [filtered, highlightedIndex, input, submit]);
 
-	const handleFocus = useCallback(() => setOpen(true), []);
-	const handleBlur = useCallback(() => setOpen(false), []);
+	const handleFocusChange = useCallback((focused: boolean) => setOpen(focused), []);
 
 	return (
 		<div className="relative w-44">
-			<TextField
+			<SearchField
 				value={input}
 				onChange={handleChange}
+				onFocusChange={handleFocusChange}
 				isDisabled={isDisabled}
 				aria-label="Nickname"
 			>
-				<Input
-					placeholder="닉네임 입력"
-					onFocus={handleFocus}
-					onBlur={handleBlur}
-					onKeyDown={handleKeyDown}
-					className="h-10 text-base"
+				<SearchField.Group>
+					<SearchField.Input
+						placeholder="닉네임 입력"
+						onKeyDown={handleKeyDown}
+						className="h-10 pr-8 text-base"
+					/>
+				</SearchField.Group>
+			</SearchField>
+
+			{showClear && (
+				<CloseButton
+					onPress={handleClear}
+					className="absolute top-1/2 right-1 -translate-y-1/2"
+					aria-label="Clear search"
 				/>
-			</TextField>
+			)}
 
 			{!isDisabled && open && filtered.length > 0 && (
 				<ul className="border-default-300 absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded border bg-white shadow-lg">

@@ -5,6 +5,7 @@ import { aggregatePresetCounts, SHAPE_COUNT } from "@/domain/pieces.ts";
 import { type CharacterData, type CharacterError, Characters } from "@/services/characters.ts";
 import { runtime } from "@/services/runtime.ts";
 
+import { useBoardStore } from "./boardStore.ts";
 import { useRecentSearchesStore } from "./recentSearchesStore.ts";
 
 type Status = "idle" | "loading" | "loaded" | "error";
@@ -21,6 +22,7 @@ interface CharacterState {
 	selectPreset: (index: number) => void;
 	updateShapeCount: (shapeIndex: number, value: number) => void;
 	resetShapeCounts: () => void;
+	clearSearch: () => void;
 	clear: () => void;
 }
 
@@ -79,6 +81,20 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 					errorMessage: null
 				});
 
+				if (data.lastSelection !== null)
+					try {
+						const blob = JSON.parse(data.lastSelection) as {
+							v?: number,
+							selectedCells?: unknown;
+						};
+						if (blob.v === 1 && Array.isArray(blob.selectedCells))
+							useBoardStore.getState().loadSelection(
+								new Set(blob.selectedCells as string[])
+							);
+					} catch {
+						// Ignore
+					}
+
 				useRecentSearchesStore.getState().push(nickname);
 			} else
 				set({
@@ -125,6 +141,17 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
 	resetShapeCounts: () => {
 		set({ shapeCounts: ZERO_COUNTS });
+	},
+
+	clearSearch: () => {
+		++searchSeq;
+		set({
+			status: "idle",
+			nickname: "",
+			data: null,
+			errorMessage: null,
+			selectedPresetIndex: 0
+		});
 	},
 
 	clear: () => {

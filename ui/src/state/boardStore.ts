@@ -25,6 +25,7 @@ interface BoardState {
 	toggleGroup: (groupId: GroupId) => void;
 	setGroupCount: (groupId: GroupId, count: number) => void;
 	setGroupSelectMode: (on: boolean) => void;
+	loadSelection: (cells: ReadonlySet<string>) => void;
 	clear: () => void;
 }
 
@@ -140,6 +141,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
 	setGroupSelectMode: on => {
 		set({ groupSelectMode: on });
+	},
+
+	loadSelection: (cells: ReadonlySet<string>) => {
+		set({ selectedCells: new Set(cells) });
 	},
 
 	clear: () => {

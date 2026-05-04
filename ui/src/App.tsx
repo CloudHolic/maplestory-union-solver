@@ -9,7 +9,7 @@ function App() {
 	return (
 		<div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
 			<div className="flex flex-col items-center gap-3 lg:flex-row lg:items-start lg:justify-center">
-				<div className="flex w-[55vmin] max-w-175 flex-col gap-1">
+				<div className="flex w-[55vmin] max-w-175 min-w-[460px] flex-col gap-1">
 					<Board />
 					<BoardControls />
 				</div>

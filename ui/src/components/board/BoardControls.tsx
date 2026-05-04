@@ -52,7 +52,7 @@ export function BoardControls() {
 
 	return (
 		<div className="flex w-full items-start justify-between gap-4">
-			<div className="flex flex-col gap-1 text-base">
+			<div className="flex flex-col gap-1 text-sm">
 				<span>내가 선택한 영역 : {stats.selectedArea}</span>
 				<span>선택 가능한 영역 : {stats.availableArea}</span>
 				<span>등록 공격대원 수 : {stats.characterCount}</span>

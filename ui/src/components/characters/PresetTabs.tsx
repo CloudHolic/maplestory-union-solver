@@ -1,5 +1,5 @@
 ﻿import { Button } from "@heroui/react";
-import { memo, useCallback} from "react";
+import { memo, useCallback } from "react";
 
 import { useCharacterStore } from "@/state/characterStore.ts";
 
