@@ -9,7 +9,7 @@ use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 use web_time::Instant;
 
-use crate::base::{CAPACITY, BfsWorkspace, LubyIterator, SolverRng, make_rng, shuffle};
+use crate::base::{CAPACITY, LubyIterator, SolverRng, make_rng, shuffle};
 use crate::domain::{BoardLayout, PieceInstance, enumerate_all_placements, Placement};
 use crate::error::{Result, SolverError};
 use crate::io::{
@@ -18,7 +18,7 @@ use crate::io::{
 };
 use crate::SolutionPlacement;
 use crate::solver::{
-    CancelFlag, SearchState, SubsetSumWorkspace, PlacementUndo,
+    CancelFlag, IslandWorkspace PlacementUndo, SearchState,
     island_check, neighbor_check, parity_check
 };
 #[cfg(feature="tracing")]
@@ -304,9 +304,8 @@ struct BacktrackEnv {
     /// Search state mutated during backtracking.
     state: SearchState,
 
-    /// Workspace buffers reused across island_check cells.
-    bfs_ws: BfsWorkspace,
-    ss_ws: SubsetSumWorkspace,
+    /// Workspace buffer reused across island_check cells.
+    island_ws: IslandWorkspace,
 
     /// Cell ordering used by the MRV scan. Shuffled at each restart;
     /// during a single solve, traversed in this order.
@@ -364,8 +363,7 @@ impl BacktrackEnv {
 
         Self {
             state: SearchState::new(ctx.type_counts.clone(), initial_cmtr),
-            bfs_ws: BfsWorkspace::new(ctx.total_cells as usize),
-            ss_ws: SubsetSumWorkspace::new(ctx.total_cells as usize),
+            island_ws: IslandWorkspace::new(ctx.total_cells as usize),
             cell_order,
             cell_pl_by_type: ctx.cell_pl_by_type.clone(),
             nodes_this_restart: 0,
@@ -463,8 +461,7 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
         env.parity_prunes += 1;
         return false;
     }
-    if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells,
-                     &mut env.bfs_ws, &mut env.ss_ws) {
+    if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells, &mut env.island_ws) {
         env.island_prunes += 1;
         return false;
     }
@@ -530,8 +527,7 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
             undo_cascade(ctx, env, cascade_depth);
             return false;
         }
-        if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells,
-                         &mut env.bfs_ws, &mut env.ss_ws) {
+        if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells, &mut env.island_ws) {
             env.island_prunes += 1;
             undo_cascade(ctx, env, cascade_depth);
             return false;
@@ -928,7 +924,10 @@ mod tests {
             seed: Some(42),
             ..Default::default()
         };
-        let result = solve_exact_cover(&input, options, None).unwrap();
+        let result = solve_exact_cover(
+            &input, options, None,
+            #[cfg(feature = "tracing")] None
+        ).unwrap();
 
         assert!(result.solution.is_some(), "expected a solution");
 
@@ -982,7 +981,10 @@ mod tests {
             seed: Some(7),
             ..Default::default()
         };
-        let result = solve_exact_cover(&input, options, None).unwrap();
+        let result = solve_exact_cover(
+            &input, options, None,
+            #[cfg(feature = "tracing")] None
+        ).unwrap();
 
         assert!(result.solution.is_some());
 
@@ -1009,7 +1011,10 @@ mod tests {
         let flag = AtomicI32::new(1);  // canceled before solve starts
         let cancel = CancelFlag::new(&flag);
 
-        let result = solve_exact_cover(&input, SolveOptions::default(), Some(&cancel)).unwrap();
+        let result = solve_exact_cover(
+            &input, SolveOptions::default(), Some(&cancel),
+            #[cfg(feature = "tracing")] None
+        ).unwrap();
 
         assert!(result.solution.is_none(), "should not solve when cancelled before start");
         assert!(result.stats.common.cancelled);
@@ -1024,7 +1029,10 @@ mod tests {
         let flag = AtomicI32::new(0);
         let cancel = CancelFlag::new(&flag);
 
-        let result = solve_exact_cover(&input, SolveOptions::default(), Some(&cancel)).unwrap();
+        let result = solve_exact_cover(
+            &input, SolveOptions::default(), Some(&cancel),
+            #[cfg(feature = "tracing")] None
+        ).unwrap();
 
         assert!(result.solution.is_some());
         assert!(!result.stats.common.cancelled);
@@ -1033,7 +1041,10 @@ mod tests {
     #[test]
     fn solve_with_no_cancel_param_completes_normally() {
         let input = make_2x2_input();
-        let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
+        let result = solve_exact_cover(
+            &input, SolveOptions::default(), None,
+            #[cfg(feature = "tracing")] None
+        ).unwrap();
 
         assert!(result.solution.is_some());
         assert!(!result.stats.common.cancelled);

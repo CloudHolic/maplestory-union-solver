@@ -6,173 +6,187 @@
 use std::io::{Result, Write};
 use std::mem::take;
 
-use crate::base::{BfsWorkspace, BitSet};
-use crate::domain::{Coord, Placement};
+use crate::domain::{Coord, PieceDef, Placement};
+use crate::io::PieceDefJson;
+use crate::ml::{BITMAP_SIZE, GRID_COLS, canonical_5x5_bitmap};
 use crate::solver::SearchState;
 
 /// Information passed to [`Tracer::on_branch`] at every branch point.
 ///
-/// Contain references the tracer borrows from the solver to compute state
-/// and candidate features. The solver's data is not modified.
+/// The tracer borrows everything it needs from the solver to compute
+/// per-candidate post-state features.
 pub(crate) struct BranchEvent<'a> {
-    /// The branch cell selected by MRV: candidates all cover this cell.
-    pub branch_cell: u16,
-
-    /// Indices into `placements` of valid candidate placements for this branch.
+    /// Placement indices the solver will try, in attempt order.
+    /// Already filtered by overlap-free + neighbor-check.
     pub candidates: &'a [u32],
 
-    /// Current solver state at branch entry.
+    /// Current solver state immediately before any candidate is applied.
     pub state: &'a SearchState,
 
-    /// First placement list for the entire solve.
-    pub placements: &'a [Placement],
-
-    /// 4-connectivity adjacency list over board cells.
-    pub adj_list: &'a [Vec<u16>],
-
-    /// Total board cells.
-    pub total_cells: u16,
-
-    /// Center region cells (for "branch cell in center" feature).
-    pub center_cells: &'a [Coord],
-
-    /// Total piece instances at solve start (for progress feature).
-    pub total_pieces: u16
+    /// First placement list (for index lookups during post-state computation).
+    pub placements: &'a [Placement]
 }
 
 /// Branch-trace collector.
+///
+/// Lifecycle (called by the solver under `--features tracing`):
+/// 1. [`Tracer::set_instance_id`] — set the instance label.
+/// 2. [`Tracer::start_instance`] — provide per-instance constants and
+///    reset per-instance state.
+/// 3. [`Tracer::on_branch`] — once per branch point. Records the
+///    candidate set and computes post-state features for each.
+/// 4. [`Tracer::on_attempt`] — after each candidate's recursion returns.
+///    Records `tried`, `succeeded`, and `subtree_nodes`.
+/// 5. [`Tracer::on_solve_complete`] — once per instance. On success,
+///    finalizes the buffered records and writes them as JSONL.
 pub struct Tracer {
-    /// Where to flush JSONL on successful instance completion.
+    /// JSONL output sink. Used at [`Tracer::on_solve_complete`] on success.
     writer: Box<dyn Write>,
 
-    /// Reusable BFS workspace for region-size computations.
-    bfs_ws: BfsWorkspace,
+    // ─── Per-instance constants (set in start_instance) ───
 
-    /// Reusable buffer for cell -> component membership lookup.
-    membership_buf: Vec<u16>,
+    /// Canonical 5x5 bitmaps for every piece_def, in input piece_defs order.
+    canonical_bitmaps: Vec<[u8; BITMAP_SIZE]>,
 
-    /// Scratch BitSet for post-placement simulation (covered -> candidate.bits).
-    sim_covered: BitSet,
+    /// Maps board cell index -> row-major grid index (`r * GRID_COLS + c`).
+    cell_to_grid_idx: Vec<u16>,
 
-    /// `type_idx -> piece_defs index` mapping for the current instance.
-    piece_def_idx_of_type: Vec<u16>,
+    /// For each piece_def (in input order), the solver's internal type index.
+    /// `None` if the def is not used by any piece instance.
+    type_idx_of_def: Vec<Option<u16>>,
 
-    /// Number of distinct piece definitions in the current instance's input.
-    num_piece_defs: u16,
-
-    /// Buffer of branch records collected for the current instance.
-    /// Dumped as JSONL on success, discarded on failure.
-    instance_buffer: Vec<BranchRecord>,
-
-    /// Identifier for the current instance (for JSONL `instance_id`).
+    /// Identifier for the current instance.
     instance_id: String,
+
+    // ─── Mutable per-instance state ───
 
     /// Counter assigned to each branch within the current instance.
     next_branch_id: u32,
 
-    /// Snapshot of `env.total_nodes` at the most recent `on_branch` call,
-    /// used by `on_attempt` to compute subtree node counts.
+    /// `total_nodes` value at the moment of the most recent on_branch
+    /// or on_attempt call, used as the baseline for subtree node counting.
     nodes_at_branch_entry: u64,
+
+    /// Finalized branch records for the current instance.
+    /// Dumped as JSONL on success, discarded on failure.
+    instance_buffer: Vec<BranchRecord>,
 
     /// Most-recent branch's pending candidate records.
     pending_candidates: Vec<CandidateRecord>,
-
-    /// State features for the most-recent branch (computed in `on_branch`).
-    pending_state_features: Vec<f32>
 }
 
 /// One row of the JSONL output.
 struct BranchRecord {
     branch_id: u32,
-    state_features: Vec<f32>,
     candidates: Vec<CandidateRecord>
 }
 
-/// One candidate within a branch record.
+/// One candidate within a [`BranchRecord`].
 struct CandidateRecord {
     placement_idx: u32,
-    features: Vec<f32>,
+    post_state: PostState,
     tried: bool,
     succeeded: bool,
     subtree_nodes: u64
+}
+
+/// Solver state after virtually applying a single candidate placement.
+struct PostState {
+    /// Grid indices (row-major, `r & GRID_COLS + c`) of cells still empty
+    /// after applying the candidate.
+    empty_target_indices: Vec<u16>,
+
+    /// `true` if any placement marking the center has been applied
+    /// (including the candidate itself).
+    center_mark: bool,
+
+    /// Remaining piece count per piece_def, in input piece_defs order.
+    /// Length matches [`Tracer::canonical_bitmaps`].
+    /// Defs not used by any solver type contribute `0`.
+    counts: Vec<u32>
 }
 
 impl Tracer {
     pub(crate) fn new(writer: Box<dyn Write>, total_cells: u16) -> Self {
         Self {
             writer,
-            bfs_ws: BfsWorkspace::new(total_cells as usize),
-            membership_buf: vec![u16::MAX; total_cells as usize],
-            sim_covered: BitSet::new(),
-            piece_def_idx_of_type: Vec::new(),
-            num_piece_defs: 0,
-            instance_buffer: Vec::new(),
+            canonical_bitmaps: Vec::new(),
+            cell_to_grid_idx: Vec::new(),
+            type_idx_of_def: Vec::new(),
             instance_id: String::new(),
             next_branch_id: 0,
             nodes_at_branch_entry: 0,
+            instance_buffer: Vec::new(),
             pending_candidates: Vec::new(),
-            pending_state_features: Vec::new()
         }
     }
 
+    /// Sets the instance identifier embedded in subsequent JSONL output.
     pub(crate) fn set_instance_id(&mut self, id: String) {
         self.instance_id = id;
     }
 
-    /// Resets all per-instance state and builds the type -> piece-def index mapping
-    /// for this instance.
-    ///
-    /// `type_ids[ti]` is the piece type with internal index `ti`.
-    /// `piece_def_ids[i]` is the piece-def at input position `i`.
-    /// Each `type_ids[ti]` must appear in `piece_def_ids`.
+    /// Resets per-instance state and rebuilds lookup tables for a new instance.
     pub(crate) fn start_instance(
         &mut self,
         type_ids: &[String],
-        piece_def_ids: &[&str]
+        piece_defs: &[(String, PieceDefJson)],
+        board_cells: &[Coord]
     ) {
-        self.num_piece_defs = piece_def_ids.len() as u16;
-        self.piece_def_idx_of_type.clear();
-        self.piece_def_idx_of_type.extend(type_ids.iter().map(|tid| {
-            piece_def_ids
-                .iter()
-                .position(|id| *id == tid.as_str())
-                .expect("type_id must appear in piece_def_ids") as u16
+        // For each piece_def (in input order), find its solver type index.
+        // None if the def is not used by any piece instance.
+        self.type_idx_of_def.clear();
+        self.type_idx_of_def.extend(piece_defs.iter().map(|(def_id, _)| {
+            type_ids.iter()
+                .position(|tid| tid == def_id)
+                .map(|p| p as u16)
         }));
+
+        self.canonical_bitmaps.clear();
+        self.canonical_bitmaps.extend(piece_defs.iter().map(|(_, def_json)| {
+            let def: PieceDef = def_json.clone().into();
+            canonical_5x5_bitmap(&def)
+        }));
+
+        self.cell_to_grid_idx.clear();
+        self.cell_to_grid_idx.extend(board_cells.iter().map(|&(r, c)| {
+            (r as u16) * GRID_COLS + (c as u16)
+        }));
+
+        // Reset per-instance state.
         self.instance_buffer.clear();
         self.next_branch_id = 0;
         self.nodes_at_branch_entry = 0;
         self.pending_candidates.clear();
-        self.pending_state_features.clear();
     }
 
     /// Called by the solver at every branch point.
-    /// Computes state and candidate features and records them in pending buffers;
-    /// finalized on the next branch or solve completion.
-    pub(crate) fn on_branch(&mut self, event: BranchEvent, current_total_nodes: u64) {
+    /// Computes post-state features for each candidate and stores them in `pending_candidates`.
+    /// Finalized at the next branch or at solve completion.
+    pub(crate) fn on_branch(&mut self, event: BranchEvent<'_>, current_total_nodes: u64) {
         // Finalize the previous branch's pending record (if any).
         self.finalize_pending();
 
         self.nodes_at_branch_entry = current_total_nodes;
 
-        // TODO: Compute state features.
-        // TODO: Compute per-candidate features.
-
-        self.pending_state_features.clear();
         self.pending_candidates.clear();
-        self.pending_candidates.extend(event.candidates.iter().map(|&p_idx| {
-            CandidateRecord {
-                placement_idx: p_idx,
-                features: Vec::new(),
+        self.pending_candidates.reserve(event.candidates.len());
+
+        for &placement_idx in event.candidates {
+            let pl = &event.placements[placement_idx as usize];
+            let post_state = self.compute_post_state(event.state, pl);
+            self.pending_candidates.push(CandidateRecord {
+                placement_idx,
+                post_state,
                 tried: false,
                 succeeded: false,
                 subtree_nodes: 0
-            }
-        }));
+            });
+        }
     }
 
-    /// Called by the solver after each candidate's recursive call returns.
-    /// Records that the candidate was tried, whether it succeeded,
-    /// and how many subtree nodes its recursion consumed.
+    /// Called after each candidate's recursive solve attempt returns.
+    /// Records the outcome and resets the subtree-node baseline.
     pub(crate) fn on_attempt(
         &mut self,
         placement_idx: u32,
@@ -181,9 +195,7 @@ impl Tracer {
     ) {
         let subtree = current_total_nodes - self.nodes_at_branch_entry;
 
-        // Update the matching pending candidate record.
-        if let Some(rec) = self
-            .pending_candidates
+        if let Some(rec) = self.pending_candidates
             .iter_mut()
             .find(|c| c.placement_idx == placement_idx) {
             rec.tried = true;
@@ -195,28 +207,68 @@ impl Tracer {
         self.nodes_at_branch_entry = current_total_nodes;
     }
 
-    /// Called at instance solve completion.
-    /// On `success`, finalizes any pending branch and
-    /// writes the entire instance buffer as JSONL, one record per line.
+    /// Called once per instance at solve completion.
+    /// On success, finalizes any pending branch and emits the buffered records as JSONL.
     /// On failure, discards the buffer.
     pub(crate) fn on_solve_complete(&mut self, success: bool) -> Result<()> {
         if !success {
             self.instance_buffer.clear();
             self.pending_candidates.clear();
-            self.pending_state_features.clear();
             return Ok(());
         }
 
         self.finalize_pending();
 
-        // TODO: Serialize instance_buffer as JSONL.
+        // TODO: Serialize self.instance_buffer to JSONL via self.writer.
 
         self.instance_buffer.clear();
         Ok(())
     }
 
-    /// Moves pending state features and candidates into a finalized `BranchRecord`
-    /// and pushes onto `instance_buffer`. No-op if no pending data.
+    /// Computes the post-state for a single candidate without mutating the solver's `SearchState`.
+    fn compute_post_state(&self, state: &SearchState, pl: &Placement) -> PostState {
+        // Empty target cells AFTER applying pl:
+        // not currently covered AND not part of pl's footprint.
+        let total_cells = self.cell_to_grid_idx.len();
+        let mut empty_target_indices = Vec::new();
+
+        for ci in 0..total_cells {
+            if !state.covered.test(ci) && !pl.bits.test(ci) {
+                empty_target_indices.push(self.cell_to_grid_idx[ci]);
+            }
+        }
+
+        let center_mark = state.has_center_mark || pl.mark_on_center;
+
+        // Counts in piece_defs order (matches canonical_bitmaps order).
+        // Decrement the entry whose solver types matches pl.type_idx
+        let mut counts = Vec::with_capacity(self.type_idx_of_def.len());
+
+        for &maybe_ti in &self.type_idx_of_def {
+            let count = match maybe_ti {
+                Some(ti) => {
+                    let base = state.remaining[ti as usize] as u32;
+                    if pl.type_idx == ti {
+                        base.saturating_sub(1)
+                    } else {
+                        base
+                    }
+                }
+                None => 0
+            };
+
+            counts.push(count);
+        }
+
+        PostState {
+            empty_target_indices,
+            center_mark,
+            counts
+        }
+    }
+
+    /// Moves pending candidates into a finalized [`BranchRecord`] and
+    /// pushes onto `instance_buffer`. No-op if no pending data.
     fn finalize_pending(&mut self) {
         if self.pending_candidates.is_empty() {
             return;
@@ -227,7 +279,6 @@ impl Tracer {
 
         self.instance_buffer.push(BranchRecord {
             branch_id,
-            state_features: take(&mut self.pending_state_features),
             candidates: take(&mut self.pending_candidates),
         });
     }
