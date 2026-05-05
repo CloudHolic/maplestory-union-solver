@@ -45,7 +45,8 @@ fn solve_returns_valid_result_for_trivial_input() {
         ..Default::default()
     };
 
-    let result = solve_exact_cover(&input, options, None).expect("solver should not error");
+    let result = solve_exact_cover(&input, options, None,
+                                   #[cfg(feature = "tracing")] None).expect("solver should not error");
 
     assert!(result.solution.is_some(), "trivial input should be solved");
     let solution = result.solution.unwrap();
@@ -61,14 +62,16 @@ fn solve_records_seed_in_stats() {
         ..Default::default()
     };
 
-    let result = solve_exact_cover(&input, options, None).unwrap();
+    let result = solve_exact_cover(&input, options, None,
+                                   #[cfg(feature = "tracing")] None).unwrap();
     assert_eq!(result.stats.common.seed, 0xDEADBEEF);
 }
 
 #[test]
 fn solve_with_default_options_works() {
     let input = make_2x2_input();
-    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None,
+                                   #[cfg(feature = "tracing")] None).unwrap();
     assert!(result.solution.is_some());
 }
 
@@ -84,8 +87,10 @@ fn input_round_trips_through_json() {
     };
     let opts2 = opts1.clone();
 
-    let r1 = solve_exact_cover(&input, opts1, None).unwrap();
-    let r2 = solve_exact_cover(&parsed, opts2, None).unwrap();
+    let r1 = solve_exact_cover(&input, opts1, None,
+                               #[cfg(feature = "tracing")] None).unwrap();
+    let r2 = solve_exact_cover(&parsed, opts2, None,
+                               #[cfg(feature = "tracing")] None).unwrap();
 
     assert_eq!(
         r1.solution.is_some(),
@@ -97,7 +102,8 @@ fn input_round_trips_through_json() {
 #[test]
 fn result_serializes_to_camel_case_json() {
     let input = make_2x2_input();
-    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None,
+                                   #[cfg(feature = "tracing")] None).unwrap();
     let json = serde_json::to_string(&result).unwrap();
 
     assert!(json.contains(r#""nodeCount""#), "should be camelCase");
@@ -108,7 +114,8 @@ fn result_serializes_to_camel_case_json() {
 #[test]
 fn solver_stats_has_all_expected_fields() {
     let input = make_2x2_input();
-    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None,
+                                   #[cfg(feature = "tracing")] None).unwrap();
     let stats: &SolverStats = &result.stats.common;
 
     let _ = stats.node_count;
@@ -130,7 +137,8 @@ fn cancel_flag_stops_solve_and_serializes_to_camel_case() {
     let flag = AtomicI32::new(1);  // pre-cancelled
     let cancel = CancelFlag::new(&flag);
 
-    let result = solve_exact_cover(&input, SolveOptions::default(), Some(&cancel)).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), Some(&cancel),
+                                   #[cfg(feature = "tracing")] None).unwrap();
 
     assert!(result.solution.is_none());
     assert!(result.stats.common.cancelled);
@@ -142,7 +150,8 @@ fn cancel_flag_stops_solve_and_serializes_to_camel_case() {
 #[test]
 fn no_cancel_flag_means_solve_completes() {
     let input = make_2x2_input();
-    let result = solve_exact_cover(&input, SolveOptions::default(), None).unwrap();
+    let result = solve_exact_cover(&input, SolveOptions::default(), None,
+                                   #[cfg(feature = "tracing")] None).unwrap();
 
     assert!(result.solution.is_some());
     assert!(!result.stats.common.cancelled);

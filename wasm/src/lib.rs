@@ -10,6 +10,8 @@ pub mod error;
 pub mod io;
 
 mod base;
+#[cfg(feature = "tracing")]
+mod ml;
 mod solver;
 
 pub use domain::{Coord, PieceDef};
@@ -21,6 +23,8 @@ pub use io::{
     PieceInstanceJson, PieceDefJson, Solution, SolutionPlacement
 };
 pub use solver::{CancelFlag, SolveOptions, solve_exact_cover};
+#[cfg(feature = "tracing")]
+pub use ml::{Tracer};
 
 #[cfg(target_arch = "wasm32")]
 mod wasm_api {
@@ -46,7 +50,12 @@ export type Solution = SolutionPlacement[];
         console_error_panic_hook::set_once();
 
         let cancel_flag = cancel_buffer.as_ref().map(CancelFlag::from_sab);
-        solve_exact_cover(&input, options, cancel_flag.as_ref())
+        solve_exact_cover(
+            &input,
+            options,
+            cancel_flag.as_ref(),
+            #[cfg(feature = "tracing")] None
+        )
             .map_err(|e| JsValue::from_str(&format!("solver error: {e}")))
     }
 }

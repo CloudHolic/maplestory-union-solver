@@ -9,7 +9,7 @@ use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 use web_time::Instant;
 
-use crate::base::{CAPACITY, LubyIterator, SolverRng, make_rng, shuffle};
+use crate::base::{CAPACITY, BfsWorkspace, LubyIterator, SolverRng, make_rng, shuffle};
 use crate::domain::{BoardLayout, PieceInstance, enumerate_all_placements, Placement};
 use crate::error::{Result, SolverError};
 use crate::io::{
@@ -18,10 +18,11 @@ use crate::io::{
 };
 use crate::SolutionPlacement;
 use crate::solver::{
-    CancelFlag,
-    IslandWorkspace, SearchState, PlacementUndo,
+    CancelFlag, SearchState, SubsetSumWorkspace, PlacementUndo,
     island_check, neighbor_check, parity_check
 };
+#[cfg(feature="tracing")]
+use crate::ml::Tracer;
 
 /// A group of placements covering some cell, all the same piece type.
 #[derive(Debug, Clone)]
@@ -304,7 +305,8 @@ struct BacktrackEnv {
     state: SearchState,
 
     /// Workspace buffers reused across island_check cells.
-    island_ws: IslandWorkspace,
+    bfs_ws: BfsWorkspace,
+    ss_ws: SubsetSumWorkspace,
 
     /// Cell ordering used by the MRV scan. Shuffled at each restart;
     /// during a single solve, traversed in this order.
@@ -362,7 +364,8 @@ impl BacktrackEnv {
 
         Self {
             state: SearchState::new(ctx.type_counts.clone(), initial_cmtr),
-            island_ws: IslandWorkspace::new(ctx.total_cells as usize),
+            bfs_ws: BfsWorkspace::new(ctx.total_cells as usize),
+            ss_ws: SubsetSumWorkspace::new(ctx.total_cells as usize),
             cell_order,
             cell_pl_by_type: ctx.cell_pl_by_type.clone(),
             nodes_this_restart: 0,
@@ -460,7 +463,8 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
         env.parity_prunes += 1;
         return false;
     }
-    if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells, &mut env.island_ws) {
+    if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells,
+                     &mut env.bfs_ws, &mut env.ss_ws) {
         env.island_prunes += 1;
         return false;
     }
@@ -526,7 +530,8 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
             undo_cascade(ctx, env, cascade_depth);
             return false;
         }
-        if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells, &mut env.island_ws) {
+        if !island_check(&env.state, &ctx.adj_list, &ctx.size_of_type, ctx.total_cells,
+                         &mut env.bfs_ws, &mut env.ss_ws) {
             env.island_prunes += 1;
             undo_cascade(ctx, env, cascade_depth);
             return false;
@@ -762,9 +767,20 @@ fn reconstruct_solution(ctx: &SolveContext, env: &BacktrackEnv, input: &ExactCov
 pub fn solve_exact_cover(
     input: &ExactCoverInput,
     options: SolveOptions,
-    cancel: Option<&CancelFlag>
+    cancel: Option<&CancelFlag>,
+    #[cfg(feature = "tracing")] mut tracer: Option<&mut Tracer>
 ) -> Result<ExactCoverResult> {
     let ctx = SolveContext::build(input)?;
+
+    #[cfg(feature = "tracing")]
+    if let Some(t) = tracer.as_deref_mut() {
+        let piece_def_ids: Vec<&str> = input.common.piece_defs.iter()
+            .map(|(id, _)| id.as_str())
+            .collect();
+
+        t.start_instance(&ctx.type_ids, &piece_def_ids);
+    }
+
     let seed = options.seed.unwrap_or_else(rand::random::<u64>);
     let mut rng = make_rng(seed);
     let mut env = BacktrackEnv::new(&ctx);

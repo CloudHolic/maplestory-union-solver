@@ -25,7 +25,7 @@ impl From<PieceDefJson> for PieceDef {
         PieceDef {
             id: j.id,
             cells: j.cells,
-            mark_index: j.mark_index
+            mark_index: j.mark_index,
         }
     }
 }

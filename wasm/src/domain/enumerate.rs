@@ -190,7 +190,7 @@ mod tests {
                 id: "1x1".to_string(),
                 cells: vec![(0, 0)],
                 mark_index: 0,
-            },
+            }
         );
 
         let pieces = vec![PieceInstance {
@@ -217,7 +217,7 @@ mod tests {
                 id: "bar".to_string(),
                 cells: vec![(0, 0), (0, 1), (0, 2)],
                 mark_index: 1,
-            },
+            }
         );
 
         let pieces = vec![PieceInstance {
@@ -244,7 +244,7 @@ mod tests {
                 id: "L".to_string(),
                 cells: vec![(0, 0), (1, 0), (2, 0), (2, 1)],
                 mark_index: 0,
-            },
+            }
         );
 
         let pieces = vec![PieceInstance {
@@ -285,7 +285,7 @@ mod tests {
                 id: "1x1".to_string(),
                 cells: vec![(0, 0)],
                 mark_index: 0,
-            },
+            }
         );
 
         let pieces = vec![PieceInstance {
@@ -309,7 +309,7 @@ mod tests {
                 id: "1x1".to_string(),
                 cells: vec![(0, 0)],
                 mark_index: 0,
-            },
+            }
         );
 
         let pieces = vec![PieceInstance {

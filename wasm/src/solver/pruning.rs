@@ -11,46 +11,20 @@
 //! - [`neighbor_check`]: after a placement, validates that no adjacent uncovered cell
 //!   has been left with zero valid placements.
 
+use crate::base::{bfs_components, BfsWorkspace};
 use crate::domain::placement::Placement;
 use crate::solver::{SearchState, TypeGroup};
 
-/// Workspace buffers reused across [`island_check`] cells.
-///
-/// `island_check` performs a BFS and a subset-sum DP. The buffers grow but never shrink,
-/// so steady-state allocation is 0.
-pub(crate) struct IslandWorkspace {
-    /// `visited[i]` is non-zero when call `i` has been seen by BFS in the current call.
-    pub visited: Vec<u8>,
-
-    /// BFS frontier stack. Reused across components.
-    pub stack: Vec<u32>,
-
-    /// Sizes of discovered components, 1 entry per component.
-    pub comp_sizes: Vec<u32>,
-
+/// Workspace for [`island_check`]'s subset-sum DP.
+pub(crate) struct SubsetSumWorkspace {
     /// Subset-sum DP buffer: `dp[k]` is non-zero iff some subset of the remaining pieces
     /// sums to exactly `k` cells.
     pub dp: Vec<u8>
 }
 
-impl IslandWorkspace {
-    /// Allocates buffers sized for `total_cells` board cells.
+impl SubsetSumWorkspace {
     pub(crate) fn new(total_cells: usize) -> Self {
-        Self {
-            visited: vec![0; total_cells],
-            stack: Vec::with_capacity(total_cells),
-            comp_sizes: Vec::with_capacity(64),
-            dp: vec![0; total_cells + 1]
-        }
-    }
-
-    /// Resets the visited bitmap and reusable scratch space.
-    /// `dp` is reset inside [`island_check`] because its zeroing is scoped to
-    /// the active subset-sum range, not the full buffer.
-    fn reset_for_traversal(&mut self) {
-        self.visited.iter_mut().for_each(|v| *v = 0);
-        self.stack.clear();
-        self.comp_sizes.clear();
+        Self { dp: vec![0; total_cells + 1] }
     }
 }
 
@@ -108,42 +82,17 @@ pub(crate) fn island_check(
     adj_list: &[Vec<u16>],
     size_of_type: &[u8],
     total_cells: u16,
-    workspace: &mut IslandWorkspace
+    bfs_ws: &mut BfsWorkspace,
+    ss_ws: &mut SubsetSumWorkspace
 ) -> bool {
     // Trivial case: no cells covered yet, single component, no point checking.
     if state.covered_count == 0 {
         return true;
     }
 
-    workspace.reset_for_traversal();
+    bfs_components(&state.covered, adj_list, total_cells, bfs_ws, None);
 
-    // BFS over uncovered cells.
-    for start in 0..total_cells as usize {
-        if state.covered.test(start) || workspace.visited[start] != 0 {
-            continue;
-        }
-
-        workspace.stack.push(start as u32);
-        workspace.visited[start] = 1;
-        let mut size: u32 = 0;
-
-        while let Some(u) = workspace.stack.pop() {
-            size += 1;
-            let u_idx = u as usize;
-
-            for &v_u16 in &adj_list[u_idx] {
-                let v = v_u16 as usize;
-                if !state.covered.test(v) && workspace.visited[v] == 0 {
-                    workspace.visited[v] = 1;
-                    workspace.stack.push(v_u16 as u32);
-                }
-            }
-        }
-
-        workspace.comp_sizes.push(size);
-    }
-
-    if workspace.comp_sizes.is_empty() {
+    if bfs_ws.comp_sizes.is_empty() {
         return true;
     }
 
@@ -158,7 +107,7 @@ pub(crate) fn island_check(
         .min();
 
     if let Some(min_size) = min_size {
-        for &comp in &workspace.comp_sizes {
+        for &comp in &bfs_ws.comp_sizes {
             if comp < min_size {
                 return false;
             }
@@ -167,8 +116,8 @@ pub(crate) fn island_check(
 
     // Subset-sum DP. Reachable sums of remaining pieces.
     let total_cap = (total_cells as usize) - state.covered_count as usize;
-    workspace.dp[..=total_cap].fill(0);
-    workspace.dp[0] = 1;
+    ss_ws.dp[..=total_cap].fill(0);
+    ss_ws.dp[0] = 1;
 
     for (ti, &count) in state.remaining.iter().enumerate() {
         if count == 0 {
@@ -179,16 +128,16 @@ pub(crate) fn island_check(
         for _ in 0..count {
             // Reverse iteration to avoid using a piece twice.
             for s in (sz..=total_cap).rev() {
-                if workspace.dp[s - sz] != 0 {
-                    workspace.dp[s] = 1;
+                if ss_ws.dp[s - sz] != 0 {
+                    ss_ws.dp[s] = 1;
                 }
             }
         }
     }
 
     // Every component's size must appear in the DP table.
-    for &comp in &workspace.comp_sizes {
-        if workspace.dp[comp as usize] == 0 {
+    for &comp in &bfs_ws.comp_sizes {
+        if ss_ws.dp[comp as usize] == 0 {
             return false;
         }
     }
@@ -248,7 +197,7 @@ pub(crate) fn neighbor_check(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::BitSet;
+    use crate::base::{BitSet, make_chain_adj};
     use crate::domain::piece::Coord;
 
     fn make_test_placement(
@@ -298,30 +247,15 @@ mod tests {
 
     // ─── island_check tests ───
 
-    /// Build a tiny linear-graph adjacency list (chain of cells).
-    fn make_chain_adj(n: usize) -> Vec<Vec<u16>> {
-        (0..n)
-            .map(|i| {
-                let mut nb = vec![];
-                if i > 0 {
-                    nb.push((i - 1) as u16);
-                }
-                if i < n - 1 {
-                    nb.push((i + 1) as u16);
-                }
-                nb
-            })
-            .collect()
-    }
-
     #[test]
     fn island_check_trivially_passes_when_nothing_covered() {
         let state = SearchState::new(vec![1], 1);
 
         let adj = make_chain_adj(10);
-        let mut ws = IslandWorkspace::new(10);
+        let mut bfs_ws = BfsWorkspace::new(10);
+        let mut ss_ws = SubsetSumWorkspace::new(10);
 
-        assert!(island_check(&state, &adj, &[3], 10, &mut ws));
+        assert!(island_check(&state, &adj, &[3], 10, &mut bfs_ws, &mut ss_ws));
     }
 
     #[test]
@@ -331,9 +265,10 @@ mod tests {
         let _ = state.apply_placement(&pl, 0, false);
 
         let adj = make_chain_adj(6);
-        let mut ws = IslandWorkspace::new(6);
+        let mut bfs_ws = BfsWorkspace::new(6);
+        let mut ss_ws = SubsetSumWorkspace::new(6);
 
-        assert!(!island_check(&state, &adj, &[3, 1], 6, &mut ws));
+        assert!(!island_check(&state, &adj, &[3, 1], 6, &mut bfs_ws, &mut ss_ws));
     }
 
     #[test]
@@ -343,9 +278,10 @@ mod tests {
         state.covered_count = 1;
 
         let adj = make_chain_adj(6);
-        let mut ws = IslandWorkspace::new(6);
+        let mut bfs_ws = BfsWorkspace::new(6);
+        let mut ss_ws = SubsetSumWorkspace::new(6);
 
-        assert!(island_check(&state, &adj, &[3, 2], 6, &mut ws));
+        assert!(island_check(&state, &adj, &[3, 2], 6, &mut bfs_ws, &mut ss_ws));
     }
 
     #[test]
@@ -357,9 +293,10 @@ mod tests {
         let _ = state.apply_placement(&pl2, 1, false);
 
         let adj = make_chain_adj(5);
-        let mut ws = IslandWorkspace::new(5);
+        let mut bfs_ws = BfsWorkspace::new(5);
+        let mut ss_ws = SubsetSumWorkspace::new(5);
 
-        assert!(!island_check(&state, &adj, &[3], 5, &mut ws));
+        assert!(!island_check(&state, &adj, &[3], 5, &mut bfs_ws, &mut ss_ws));
     }
 
     // ─── neighbor_check tests ───

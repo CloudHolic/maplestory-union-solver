@@ -110,7 +110,12 @@ fn run_single(input: &ExactCoverInput, args: &Args) -> Result<RunOutcome, Box<dy
         luby_base: args.luby_base
     };
 
-    let result = solve_exact_cover(input, options, None)?;
+    let result = solve_exact_cover(
+        input,
+        options,
+        None,
+        #[cfg(feature = "tracing")] None
+    )?;
     let elapsed_ms = result.stats.common.elapsed_ms;
     let total_nodes = result.stats.common.node_count;
     let winner = Some(WorkerStats { worker_idx: 0, result });
@@ -138,7 +143,12 @@ fn run_parallel(input: &ExactCoverInput, args: &Args, n_workers: usize) -> Resul
                 };
 
                 let cancel = CancelFlag::new(cancel_ref);
-                match solve_exact_cover(input, options, Some(&cancel)) {
+                match solve_exact_cover(
+                    input,
+                    options,
+                    Some(&cancel),
+                    #[cfg(feature = "tracing")] None
+                ) {
                     Ok(r) => {
                         if r.solution.is_some() {
                             cancel_ref.store(1, Ordering::Relaxed);
