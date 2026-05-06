@@ -13,10 +13,10 @@ pub(crate) mod canonical;
 pub use tracer::Tracer;
 
 #[cfg(feature = "tracing")]
-pub(crate) use canonical::{BITMAP_SIZE, canonical_5x5_bitmap};
+pub(crate) use canonical::{BITMAP_SIZE, canonical_bitmap};
 
 #[cfg(feature = "tracing")]
 pub(crate) use tracer::{BranchEvent};
 
 #[cfg(feature = "tracing")]
-pub(crate) const GRID_COLS: u16 = 20;
+pub(crate) const GRID_COLS: u16 = 22;

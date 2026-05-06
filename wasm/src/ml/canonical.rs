@@ -6,13 +6,13 @@
 use crate::domain::{PieceDef, all_variants};
 
 /// Side length of the canonical bitmap.
-const SIDE: usize = 5;
+const SIDE: usize = 6;
 
 /// Total cells in the canonical bitmap (`SIDE x SIDE`)
 pub(crate) const BITMAP_SIZE: usize = SIDE * SIDE;
 
-/// Returns the canonical 5x5 row-major bitmap for `def`.
-pub(crate) fn canonical_5x5_bitmap(def: &PieceDef) -> [u8; BITMAP_SIZE] {
+/// Returns the canonical row-major bitmap for `def`.
+pub(crate) fn canonical_bitmap(def: &PieceDef) -> [u8; BITMAP_SIZE] {
     let variants = all_variants(def);
     let canonical = variants
         .iter()
@@ -44,16 +44,16 @@ mod tests {
 
     #[test]
     fn single_cell_is_top_left() {
-        let bitmap = canonical_5x5_bitmap(&def("dot", vec![(0, 0)]));
-        let mut expected = [0u8; 25];
+        let bitmap = canonical_bitmap(&def("dot", vec![(0, 0)]));
+        let mut expected = [0u8; 36];
         expected[0] = 1;
         assert_eq!(bitmap, expected);
     }
 
     #[test]
     fn horizontal_bar_picks_horizontal_canonical() {
-        let bitmap = canonical_5x5_bitmap(&def("bar3", vec![(0, 0), (0, 1), (0, 2)]));
-        let mut expected = [0u8; 25];
+        let bitmap = canonical_bitmap(&def("bar3", vec![(0, 0), (0, 1), (0, 2)]));
+        let mut expected = [0u8; 36];
         expected[0] = 1;
         expected[1] = 1;
         expected[2] = 1;
@@ -65,7 +65,7 @@ mod tests {
         // Same shape written in two orientations canonicalizes to one bitmap.
         let l1 = def("l1", vec![(0, 0), (1, 0), (2, 0), (2, 1)]);
         let l2 = def("l2", vec![(0, 0), (0, 1), (0, 2), (1, 0)]);
-        assert_eq!(canonical_5x5_bitmap(&l1), canonical_5x5_bitmap(&l2));
+        assert_eq!(canonical_bitmap(&l1), canonical_bitmap(&l2));
     }
 
     #[test]
@@ -76,7 +76,7 @@ mod tests {
             def("L", vec![(0, 0), (1, 0), (2, 0), (2, 1)]),
         ];
         for p in &pieces {
-            let bitmap = canonical_5x5_bitmap(p);
+            let bitmap = canonical_bitmap(p);
             let ones: u8 = bitmap.iter().sum();
             assert_eq!(ones as usize, p.cells.len(), "piece {}: cell count mismatch", p.id);
         }

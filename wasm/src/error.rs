@@ -41,7 +41,12 @@ pub enum SolverError {
 
     /// JSON (de)serialization failed.
     #[error("JSON I/O error: {0}")]
-    Json(#[from] serde_json::Error)
+    Json(#[from] serde_json::Error),
+    
+    /// Writing tracer JSONL output to its sink failed.
+    #[cfg(feature = "tracing")]
+    #[error("tracer I/O error: {0}")]
+    TracerIo(#[from] std::io::Error),
 }
 
 pub type Result<T> = core::result::Result<T, SolverError>;

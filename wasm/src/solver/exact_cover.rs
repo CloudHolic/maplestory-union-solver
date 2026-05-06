@@ -18,11 +18,11 @@ use crate::io::{
 };
 use crate::SolutionPlacement;
 use crate::solver::{
-    CancelFlag, IslandWorkspace PlacementUndo, SearchState,
+    CancelFlag, IslandWorkspace, PlacementUndo, SearchState,
     island_check, neighbor_check, parity_check
 };
 #[cfg(feature="tracing")]
-use crate::ml::Tracer;
+use crate::ml::{BranchEvent, Tracer};
 
 /// A group of placements covering some cell, all the same piece type.
 #[derive(Debug, Clone)]
@@ -111,7 +111,10 @@ struct SolveContext {
 
 impl SolveContext {
     /// Builds the context from parsed input.
-    fn build(input: &ExactCoverInput) -> Result<Self> {
+    fn build(
+        input: &ExactCoverInput,
+        #[cfg(feature = "tracing")] tracer: Option<&mut Tracer>
+    ) -> Result<Self> {
         // 1. Parse cell coordinates
         let target_cells = input.parse_target_cells()?;
         let center_cells = input.common.parse_center_cells()?;
@@ -252,6 +255,12 @@ impl SolveContext {
                 
                 cell_pl_by_type[ci].sort_by_key(|g| g.type_idx);
             }
+        }
+
+        // 10. Add tracer if `tracing` enabled.
+        #[cfg(feature = "tracing")]
+        if let Some(t) = tracer {
+            t.start_instance(&type_ids, &input.common.piece_defs, &board.cells);
         }
 
         Ok(Self {
@@ -429,7 +438,12 @@ enum MrvOutcome {
 ///    has exactly one valid placement, apply it and rescan.
 /// 4. Branch on the MRV cell: try its candidate placements one by one,
 ///    recursing into each.
-fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelFlag>) -> bool {
+fn backtrack(
+    ctx: &SolveContext,
+    env: &mut BacktrackEnv,
+    cancel: Option<&CancelFlag>,
+    #[cfg(feature = "tracing")] mut tracer: Option<&mut Tracer>
+) -> bool {
     env.nodes_this_restart += 1;
     env.total_nodes += 1;
 
@@ -534,6 +548,29 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
         }
     }
 
+    #[cfg(feature = "tracing")]
+    if let Some(t) = tracer.as_deref_mut() {
+        let mut valid_candidates: Vec<u32> = Vec::new();
+        for group in &env.cell_pl_by_type[branch as usize] {
+            if env.state.remaining[group.type_idx as usize] == 0 {
+                continue;
+            }
+
+            for &p_idx in &group.placements {
+                let pl = &ctx.placements[p_idx as usize];
+                if !env.state.covered.has_overlap(&pl.bits) {
+                    valid_candidates.push(p_idx);
+                }
+            }
+        }
+
+        t.on_branch(BranchEvent {
+            candidates: &valid_candidates,
+            state: &env.state,
+            placements: &ctx.placements
+        }, env.total_nodes);
+    }
+
     // Iterate via indices to avoid Vec::clone of candidates per branch node.
     let groups_len = env.cell_pl_by_type[branch as usize].len();
     'outer: for gi in 0..groups_len {
@@ -562,7 +599,17 @@ fn backtrack(ctx: &SolveContext, env: &mut BacktrackEnv, cancel: Option<&CancelF
                 continue;
             }
 
-            if backtrack(ctx, env, cancel) {
+            let success = backtrack(
+                ctx, env, cancel,
+                #[cfg(feature = "tracing")] tracer.as_deref_mut()
+            );
+
+            #[cfg(feature = "tracing")]
+            if let Some(t) = tracer.as_deref_mut() {
+                t.on_attempt(p_idx, success, env.total_nodes);
+            }
+
+            if success {
                 return true;
             }
 
@@ -766,16 +813,10 @@ pub fn solve_exact_cover(
     cancel: Option<&CancelFlag>,
     #[cfg(feature = "tracing")] mut tracer: Option<&mut Tracer>
 ) -> Result<ExactCoverResult> {
-    let ctx = SolveContext::build(input)?;
-
-    #[cfg(feature = "tracing")]
-    if let Some(t) = tracer.as_deref_mut() {
-        let piece_def_ids: Vec<&str> = input.common.piece_defs.iter()
-            .map(|(id, _)| id.as_str())
-            .collect();
-
-        t.start_instance(&ctx.type_ids, &piece_def_ids);
-    }
+    let ctx = SolveContext::build(
+        input,
+        #[cfg(feature = "tracing")] tracer.as_deref_mut()
+    )?;
 
     let seed = options.seed.unwrap_or_else(rand::random::<u64>);
     let mut rng = make_rng(seed);
@@ -788,7 +829,10 @@ pub fn solve_exact_cover(
 
     // First attempt with the initial cell ordering.
     env.node_budget = luby.next().expect("Luby iterator never terminates");
-    if backtrack(&ctx, &mut env, cancel) {
+    if backtrack(
+        &ctx, &mut env, cancel,
+        #[cfg(feature = "tracing")] tracer.as_deref_mut()
+    ) {
         found_solution = true;
     }
 
@@ -811,7 +855,10 @@ pub fn solve_exact_cover(
         let next_budget = luby.next().expect("Luby iterator never terminates");
         env.reset_for_restart(&ctx, next_budget, &mut rng);
 
-        if backtrack(&ctx, &mut env, cancel) {
+        if backtrack(
+            &ctx, &mut env, cancel,
+            #[cfg(feature = "tracing")] tracer.as_deref_mut()
+        ) {
             found_solution = true;
         }
     }
@@ -826,6 +873,11 @@ pub fn solve_exact_cover(
     } else {
         None
     };
+
+    #[cfg(feature = "tracing")]
+    if let Some(t) = tracer.as_deref_mut() {
+        t.on_solve_complete(found_solution)?;
+    }
 
     Ok(ExactCoverResult { solution, stats })
 }
@@ -866,7 +918,7 @@ mod tests {
     #[test]
     fn build_context_succeeds_for_well_formed_input() {
         let input = make_2x2_input();
-        let ctx = SolveContext::build(&input).unwrap();
+        let ctx = SolveContext::build(&input, #[cfg(feature = "tracing")] None).unwrap();
 
         assert_eq!(ctx.total_cells, 4);
         assert_eq!(ctx.type_ids, vec!["square".to_string()]);
@@ -891,7 +943,7 @@ mod tests {
             index: 1,
         });
 
-        let result = SolveContext::build(&input);
+        let result = SolveContext::build(&input, #[cfg(feature = "tracing")] None);
 
         assert!(matches!(
             result,
@@ -904,7 +956,7 @@ mod tests {
         let mut input = make_2x2_input();
         input.common.center_cells = vec!["99,99".to_string()];
 
-        let result = SolveContext::build(&input);
+        let result = SolveContext::build(&input, #[cfg(feature = "tracing")] None);
 
         assert!(matches!(result, Err(SolverError::NoCenterMarkPossible)));
     }
@@ -912,7 +964,7 @@ mod tests {
     #[test]
     fn initial_center_mark_type_remaining_counts_correctly() {
         let input = make_2x2_input();
-        let ctx = SolveContext::build(&input).unwrap();
+        let ctx = SolveContext::build(&input, #[cfg(feature = "tracing")] None).unwrap();
 
         assert_eq!(ctx.initial_center_mark_type_remaining(), 1);
     }
