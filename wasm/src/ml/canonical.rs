@@ -12,19 +12,19 @@ const SIDE: usize = 6;
 pub(crate) const BITMAP_SIZE: usize = SIDE * SIDE;
 
 /// Returns the canonical row-major bitmap for `def`.
-pub(crate) fn canonical_bitmap(def: &PieceDef) -> [u8; BITMAP_SIZE] {
+pub(crate) fn canonical_bitmap(def: &PieceDef) -> Vec<u8> {
     let variants = all_variants(def);
     let canonical = variants
         .iter()
         .min_by(|a, b| a.cells.cmp(&b.cells))
         .expect("piece definition produces at least one variant");
 
-    let mut bitmap = [0u8; BITMAP_SIZE];
+    let mut bitmap = vec![0u8; BITMAP_SIZE];
     for &(r, c) in &canonical.cells {
         debug_assert!(
             (0..SIDE as i8).contains(&r) && (0..SIDE as i8).contains(&c),
-            "canonical variant cell {:?} out of 5x5 bounds for {}",
-            (r, c), def.id
+            "canonical variant cell {:?} out of {}x{} bounds for {}",
+            (r, c), SIDE, SIDE, def.id
         );
 
         let idx = (r as usize) * SIDE + (c as usize);
@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn single_cell_is_top_left() {
         let bitmap = canonical_bitmap(&def("dot", vec![(0, 0)]));
-        let mut expected = [0u8; 36];
+        let mut expected = [0u8; BITMAP_SIZE];
         expected[0] = 1;
         assert_eq!(bitmap, expected);
     }
@@ -53,7 +53,7 @@ mod tests {
     #[test]
     fn horizontal_bar_picks_horizontal_canonical() {
         let bitmap = canonical_bitmap(&def("bar3", vec![(0, 0), (0, 1), (0, 2)]));
-        let mut expected = [0u8; 36];
+        let mut expected = [0u8; BITMAP_SIZE];
         expected[0] = 1;
         expected[1] = 1;
         expected[2] = 1;

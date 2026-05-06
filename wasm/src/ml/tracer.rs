@@ -7,7 +7,7 @@ use std::io::Write;
 use std::mem::take;
 
 use serde::Serialize;
-use serde_big_array::BigArray;
+use serde::ser::SerializeSeq;
 
 use crate::domain::{Coord, PieceDef, Placement};
 use crate::error::Result;
@@ -50,7 +50,7 @@ pub struct Tracer {
     // ─── Per-instance constants (set in start_instance) ───
 
     /// Canonical 5x5 bitmaps for every piece_def, in input piece_defs order.
-    canonical_bitmaps: Vec<[u8; BITMAP_SIZE]>,
+    canonical_bitmaps: Vec<u8>,
 
     /// Maps board cell index -> row-major grid index (`r * GRID_COLS + c`).
     cell_to_grid_idx: Vec<u16>,
@@ -120,7 +120,23 @@ struct InstanceHeader<'a> {
     #[serde(rename = "_kind")]
     kind: &'static str,
     instance_id: &'a str,
-    canonical_bitmaps: Vec<u8>
+    #[serde(serialize_with = "serialize_bitmaps_chunked")]
+    canonical_bitmaps: &'a [u8]
+}
+
+fn serialize_bitmaps_chunked<S>(bitmaps: &[u8], serializer: S)
+    -> std::result::Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+    debug_assert!(bitmaps.len() % BITMAP_SIZE == 0,
+                  "canonical_bitmaps length not a multiple of BITMAP_SIZE");
+
+    let num_pieces = bitmaps.len() / BITMAP_SIZE;
+    let mut seq = serializer.serialize_seq(Some(num_pieces))?;
+    for chunk in bitmaps.chunks_exact(BITMAP_SIZE) {
+        seq.serialize_element(chunk)?;
+    }
+
+    seq.end()
 }
 
 /// JSONL row for a single branch - flattens [`BranchRecord`] alongside
@@ -171,10 +187,10 @@ impl Tracer {
         }));
 
         self.canonical_bitmaps.clear();
-        self.canonical_bitmaps.extend(piece_defs.iter().map(|(_, def_json)| {
+        for (_, def_json) in piece_defs {
             let def: PieceDef = def_json.clone().into();
-            canonical_bitmap(&def)
-        }));
+            self.canonical_bitmaps.extend_from_slice(&canonical_bitmap(&def));
+        }
 
         self.cell_to_grid_idx.clear();
         self.cell_to_grid_idx.extend(board_cells.iter().map(|&(r, c)| {
@@ -420,7 +436,7 @@ mod tests {
         let pl = placement(0, &[0], false);
         let post = t.compute_post_state(&state, &pl);
 
-        assert_eq!(post.empty_target_indices, vec![21]);
+        assert_eq!(post.empty_target_indices, vec![23]);
     }
 
     #[test]

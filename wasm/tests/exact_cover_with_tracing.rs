@@ -109,7 +109,7 @@ fn tracer_captures_branches_during_solve() {
     assert_eq!(bitmaps.len(), 1, "one piece def → one bitmap");
 
     let bitmap = bitmaps[0].as_array().expect("bitmap is array");
-    assert_eq!(bitmap.len(), 25, "canonical bitmap is 5×5 = 25 cells");
+    assert_eq!(bitmap.len(), 36, "canonical bitmap is 6x6 = 36 cells");
 
     // Row 1+: branch records
     for (i, line) in lines[1..].iter().enumerate() {
