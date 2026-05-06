@@ -5,18 +5,27 @@
 
 #[cfg(feature = "tracing")]
 pub mod tracer;
-
+#[cfg(feature = "tracing")]
+pub(crate) mod board;
 #[cfg(feature = "tracing")]
 pub(crate) mod canonical;
+
+#[cfg(feature = "tracing")]
+pub(crate) mod piece_pool;
+#[cfg(feature = "tracing")]
+pub(crate) mod polyomino;
 
 #[cfg(feature = "tracing")]
 pub use tracer::Tracer;
 
 #[cfg(feature = "tracing")]
+pub(crate) use board::{Group, GroupId, UnionBoard};
+#[cfg(feature = "tracing")]
 pub(crate) use canonical::{BITMAP_SIZE, canonical_bitmap};
-
 #[cfg(feature = "tracing")]
 pub(crate) use tracer::{BranchEvent};
+#[cfg(feature = "tracing")]
+pub(crate) use polyomino::PolyominoCatalog;
 
 #[cfg(feature = "tracing")]
 pub(crate) const GRID_COLS: u16 = 22;
