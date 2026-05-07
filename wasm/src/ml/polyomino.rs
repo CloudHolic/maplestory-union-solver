@@ -13,13 +13,13 @@ use crate::ml::canonical_bitmap;
 const ROOT: Coord = (0, 0);
 
 /// Free polyominoes of a given size, indexed by `polyominos[size]`.
-pub(crate) struct PolyominoCatalog {
+pub struct PolyominoCatalog {
     by_size: Vec<Vec<PieceDef>>,
 }
 
 impl PolyominoCatalog {
     /// Enumerates all free polyominoes from size 1 up to `max_size`.
-    pub(crate) fn enumerate(max_size: u8) -> Self {
+    pub fn enumerate(max_size: u8) -> Self {
         let max = max_size as usize;
         let mut by_size: Vec<Vec<PieceDef>> = vec![Vec::new(); max + 1];
         let mut seen: Vec<HashSet<Vec<u8>>> = vec![HashSet::new(); max + 1];
@@ -45,7 +45,7 @@ impl PolyominoCatalog {
         Self { by_size }
     }
 
-    pub(crate) fn of_size(&self, size: u8) -> &[PieceDef] {
+    pub fn of_size(&self, size: u8) -> &[PieceDef] {
         &self.by_size[size as usize]
     }
 }

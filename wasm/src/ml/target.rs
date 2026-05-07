@@ -33,26 +33,66 @@ pub(crate) fn build_target_cells(
         piece_total_cells, board.all_cells.len()
     );
 
-    // 1. Center cells.
+    // 1. Outer groups (priority list root)
+    let n1_target = rng.random_range(3..=5);
+    let outer_budget = piece_total_cells * 60 / 100;
+
+    let mut all_outer: Vec<&Group> = board.outer_groups().collect();
+    shuffle(&mut all_outer, rng);
+
+    let mut n1 = 0;
+    let mut outer_sum = 0;
+    for g in &all_outer {
+        if n1 >= n1_target {
+            break;
+        }
+
+        let new_sum = outer_sum + g.cells.len();
+        if new_sum > outer_budget && n1 >= 2 {
+            break;
+        }
+
+        outer_sum = new_sum;
+        n1 += 1;
+    }
+
+    let n1_take = n1.max(2).min(all_outer.len());
+    let outer_picked: Vec<&Group> = all_outer[..n1_take].to_vec();
+    let outer_rest: Vec<&Group> = all_outer[n1_take..].to_vec();
+
+    let outer_quadrants: HashSet<Quadrant> = outer_picked.iter()
+        .map(|g| group_quadrant(g))
+        .collect();
+
+    // 2. Center cells - prefer those in outer's quadrants
     let center_count = sample_center_count(rng);
-    let mut selected_centers: Vec<Coord> = board.center_cells
-        .sample(rng, center_count)
+
+    let mut centers_in: Vec<Coord> = board.center_cells.iter()
+        .filter(|c| outer_quadrants.contains(&cell_quadrant(**c)))
+        .copied()
+        .collect();
+    shuffle(&mut centers_in, rng);
+
+    let mut centers_out: Vec<Coord> = board.center_cells.iter()
+        .filter(|c| !outer_quadrants.contains(&cell_quadrant(**c)))
+        .copied()
+        .collect();
+    shuffle(&mut centers_out, rng);
+
+    let mut selected_centers: Vec<Coord> = centers_in.iter()
+        .chain(centers_out.iter())
+        .take(center_count)
         .copied()
         .collect();
     selected_centers.sort();
 
-    // 2. Inner groups containing selected centers.
-    let cell_to_group: HashMap<Coord, &Group> = board.groups.iter()
-        .flat_map(|g| g.cells.iter().map(move |c| (*c, g)))
-        .collect();
-    let center_inner_ids: HashSet<GroupId> = selected_centers.iter()
-        .map(|c| cell_to_group[c].id)
-        .collect();
+    // 3. Priority list
+    let priority = build_priority_list(
+        board, &outer_picked, &outer_rest, &outer_quadrants,
+        &selected_centers, rng
+    );
 
-    // 3. Priority list of groups.
-    let priority = build_priority_list(board, &center_inner_ids, rng);
-
-    // 4. Fill cells.
+    // 4. Fill
     let mut target_cells: HashSet<Coord> = selected_centers.iter().copied().collect();
     for group in &priority {
         if target_cells.len() >= piece_total_cells {
@@ -83,6 +123,23 @@ pub(crate) fn build_target_cells(
     TargetSelection { all_cells, center_cells: selected_centers }
 }
 
+/// One of the four board quadrants.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum Quadrant { NW, NE, SW, SE }
+
+fn cell_quadrant(cell: Coord) -> Quadrant {
+    match (cell.0 < 10, cell.1 < 11) {
+        (true, true) => Quadrant::NW,
+        (true, false) => Quadrant::NE,
+        (false, true) => Quadrant::SW,
+        (false, false) => Quadrant::SE
+    }
+}
+
+fn group_quadrant(group: &Group) -> Quadrant {
+    cell_quadrant(group.cells[0])
+}
+
 /// Categorical([0.05, 0.50, 0.40, 0.05]) for [1, 2, 3, 4].
 fn sample_center_count(rng: &mut impl Rng) -> usize {
     let r: f64 = rng.random();
@@ -97,37 +154,36 @@ fn sample_center_count(rng: &mut impl Rng) -> usize {
 /// Builds the group fill priority list.
 fn build_priority_list<'a>(
     board: &'a UnionBoard,
-    center_inner_ids: &HashSet<GroupId>,
+    outer_picked: &[&'a Group],
+    outer_rest: &[&'a Group],
+    outer_quadrants: &HashSet<Quadrant>,
+    _selected_centers: &[Coord],
     rng: &mut impl Rng
 ) -> Vec<&'a Group> {
     let mut priority: Vec<&'a Group> = Vec::new();
 
-    // tier 1: outer N1 ∈ [2, 6]
-    let n1 = rng.random_range(2..=6);
-    let mut outer: Vec<&Group> = board.outer_groups().collect();
-    shuffle(&mut outer, rng);
-    let n1_take = n1.min(outer.len());
-    priority.extend(outer[..n1_take].iter().copied());
+    // tier 1: chosen outer
+    priority.extend(outer_picked.iter().copied());
 
-    // tier 2: inner groups containing selected centers
-    for g in board.inner_groups() {
-        if center_inner_ids.contains(&g.id) {
-            priority.push(g);
-        }
-    }
-
-    // tier 3: other inner N2 ∈ [1, 4]
-    let n2 = rng.random_range(1..=4);
-    let mut inner_rest: Vec<&Group> = board.inner_groups()
-        .filter(|g| !center_inner_ids.contains(&g.id))
+    // tier 2: path inner (same quadrants as `outer_picked`)
+    let mut path_inner: Vec<&Group> = board.inner_groups()
+        .filter(|g| outer_quadrants.contains(&group_quadrant(g)))
         .collect();
-    shuffle(&mut inner_rest, rng);
-    let n2_take = n2.min(inner_rest.len());
-    priority.extend(inner_rest[..n2_take].iter().copied());
+    shuffle(&mut path_inner, rng);
+    priority.extend(path_inner.iter().copied());
 
-    // tier 4: overflow (any remaining group)
-    let mut tier4: Vec<&Group> = outer[n1_take..].iter().copied().collect();
-    tier4.extend(inner_rest[n2_take..].iter().copied());
+    // tier 3: other inner (different quadrants), N2 ∈ [1, 4]
+    let n2 = rng.random_range(1..=4);
+    let mut other_inner: Vec<&Group> = board.inner_groups()
+        .filter(|g| !outer_quadrants.contains(&group_quadrant(g)))
+        .collect();
+    shuffle(&mut other_inner, rng);
+    let n2_take = n2.min(other_inner.len());
+    priority.extend(other_inner[..n2_take].iter().copied());
+
+    // tier 4: overflow - remaining outer + remaining inner
+    let mut tier4: Vec<&Group> = outer_rest.iter().copied().collect();
+    tier4.extend(other_inner[n2_take..].iter().copied());
     shuffle(&mut tier4, rng);
     priority.extend(tier4);
 

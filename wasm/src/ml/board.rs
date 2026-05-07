@@ -71,7 +71,7 @@ pub(crate) struct Group {
 }
 
 /// Static board layout, fully parsed.
-pub(crate) struct UnionBoard {
+pub struct UnionBoard {
     pub all_cells: Vec<Coord>,
     pub center_cells: Vec<Coord>,
     pub groups: Vec<Group>
@@ -79,7 +79,7 @@ pub(crate) struct UnionBoard {
 
 impl UnionBoard {
     /// Parses BOARD_MAP_ROWS into the structured layout.
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         let mut by_group: HashMap<GroupId, Vec<Coord>> = HashMap::new();
         let mut all_cells: Vec<Coord> = Vec::with_capacity((BOARD_HEIGHT as usize) * (BOARD_WIDTH as usize));
 

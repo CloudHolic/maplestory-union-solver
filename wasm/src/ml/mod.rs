@@ -3,31 +3,34 @@
 
 //! Machine-learning support for the solver.
 
-#[cfg(feature = "tracing")]
-pub mod tracer;
-#[cfg(feature = "tracing")]
-pub(crate) mod board;
-#[cfg(feature = "tracing")]
-pub(crate) mod canonical;
+use cfg_if::cfg_if;
 
-#[cfg(feature = "tracing")]
-pub(crate) mod piece_pool;
-#[cfg(feature = "tracing")]
-pub(crate) mod polyomino;
-#[cfg(feature = "tracing")]
-pub(crate) mod target;
+cfg_if! {
+    if #[cfg(feature = "tracing")] {
+        pub mod board;
+        pub mod instance;
+        pub mod polyomino;
+        pub mod tracer;
+        
+        pub(crate) mod canonical;
+        pub(crate) mod piece_pool;
+        pub(crate) mod target;
+    }
+}
 
-#[cfg(feature = "tracing")]
-pub use tracer::Tracer;
-
-#[cfg(feature = "tracing")]
-pub(crate) use board::{Group, GroupId, UnionBoard};
-#[cfg(feature = "tracing")]
-pub(crate) use canonical::{BITMAP_SIZE, canonical_bitmap};
-#[cfg(feature = "tracing")]
-pub(crate) use tracer::{BranchEvent};
-#[cfg(feature = "tracing")]
-pub(crate) use polyomino::PolyominoCatalog;
-
-#[cfg(feature = "tracing")]
-pub(crate) const GRID_COLS: u16 = 22;
+cfg_if! {
+    if #[cfg(feature = "tracing")] {
+        pub use board::UnionBoard;
+        pub use instance::build_instance;
+        pub use polyomino::PolyominoCatalog;
+        pub use tracer::Tracer;
+        
+        pub(crate) use board::{Group, GroupId};
+        pub(crate) use canonical::{BITMAP_SIZE, canonical_bitmap};
+        pub(crate) use piece_pool::build_piece_pool;
+        pub(crate) use target::build_target_cells;
+        pub(crate) use tracer::BranchEvent;
+        
+        pub(crate) const GRID_COLS: u16 = 22;
+    }
+}

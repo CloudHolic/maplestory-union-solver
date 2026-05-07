@@ -23,8 +23,9 @@ pub use io::{
     PieceInstanceJson, PieceDefJson, Solution, SolutionPlacement
 };
 pub use solver::{CancelFlag, SolveOptions, solve_exact_cover};
+
 #[cfg(feature = "tracing")]
-pub use ml::{Tracer};
+pub use ml::{build_instance, PolyominoCatalog, Tracer, UnionBoard};
 
 #[cfg(target_arch = "wasm32")]
 mod wasm_api {

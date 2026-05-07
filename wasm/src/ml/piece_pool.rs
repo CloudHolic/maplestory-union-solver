@@ -28,6 +28,15 @@ pub(crate) struct PiecePool {
     pub pieces: Vec<PieceInstance>
 }
 
+impl PiecePool {
+    /// Total cell count summed over all pieces.
+    pub(crate) fn total_cells(&self) -> usize {
+        self.pieces.iter()
+            .map(|p| self.piece_defs[p.type_idx as usize].cells.len())
+            .sum()
+    }
+}
+
 const PIECE_COUNT_MIN: usize = 20;
 const PIECE_COUNT_MAX: usize = 43;
 const SMALL_INCLUSION_PROB: f64 = 0.10;
