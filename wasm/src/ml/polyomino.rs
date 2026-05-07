@@ -5,6 +5,7 @@
 
 use std::collections::HashSet;
 
+use crate::base::DIRS;
 use crate::domain::{Coord, PieceDef};
 use crate::ml::canonical_bitmap;
 
@@ -70,7 +71,6 @@ fn record(
 }
 
 fn push_filtered_neighbors(cell: Coord, tried: &HashSet<Coord>, out: &mut Vec<Coord>) {
-    const DIRS: [(i8, i8); 4] = [(0, -1), (-1, 0), (1, 0), (0, 1)];
     for (dr, dc) in DIRS {
         let n = (cell.0 + dr, cell.1 + dc);
         if n >= ROOT && !tried.contains(&n) {

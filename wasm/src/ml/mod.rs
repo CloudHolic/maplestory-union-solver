@@ -14,6 +14,8 @@ pub(crate) mod canonical;
 pub(crate) mod piece_pool;
 #[cfg(feature = "tracing")]
 pub(crate) mod polyomino;
+#[cfg(feature = "tracing")]
+pub(crate) mod target;
 
 #[cfg(feature = "tracing")]
 pub use tracer::Tracer;

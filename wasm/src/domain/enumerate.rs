@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use crate::base::{BitSet, CAPACITY};
+use crate::base::{BitSet, CAPACITY, DIRS};
 use crate::domain::{Coord, PieceDef, PieceVariant, all_variants, Placement};
 use crate::error::{Result, SolverError};
 
@@ -148,7 +148,6 @@ fn compute_neighbor_bits(
     board: &BoardLayout,
     placement_bits: &BitSet
 ) -> Vec<u16> {
-    const DIRS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
     let mut seen = BitSet::new();
     let mut indices: Vec<u16> = Vec::with_capacity(8);
 

@@ -4,8 +4,9 @@
 //! Pseudo-random number generation, Luby restart schedule, and shuffle utilities
 //! used by the solver.
 
-use rand::SeedableRng;
+use rand::Rng;
 use rand::RngExt;
+use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
 
 /// PRNG type used throughout the solver.
@@ -56,7 +57,7 @@ impl Iterator for LubyIterator {
 }
 
 /// In-place Fisher-Yates shuffle of `arr` using `rng`.
-pub(crate) fn shuffle<T>(arr: &mut [T], rng: &mut SolverRng) {
+pub(crate) fn shuffle<T>(arr: &mut [T], rng: &mut impl Rng) {
     let n = arr.len();
     if n < 2 {
         return;

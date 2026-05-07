@@ -8,3 +8,6 @@ mod rng;
 
 pub(crate) use bitset::{BitSet, CAPACITY};
 pub(crate) use rng::{LubyIterator, SolverRng, make_rng, shuffle};
+
+/// 4-connected neighbor offsets (up, down, left, right) on a 2D grid.
+pub(crate) const DIRS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
