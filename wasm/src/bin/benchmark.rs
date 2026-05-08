@@ -21,6 +21,8 @@ use maplestory_union_solver_wasm::{
     CancelFlag, ExactCoverInput, ExactCoverResult, SolveOptions, solve_exact_cover
 };
 
+const RATIO: u64 = 0x9E3779B9;
+
 fn auto_workers() -> usize {
     thread::available_parallelism()
         .map(|n| n.get())
@@ -135,7 +137,7 @@ fn run_parallel(input: &ExactCoverInput, args: &Args, n_workers: usize) -> Resul
             let tx = tx.clone();
             let cancel_ref = &cancel_atom;
             s.spawn(move || {
-                let seed = base_seed.wrapping_add((worker_idx as u64).wrapping_mul(0x9E3779B9));
+                let seed = base_seed.wrapping_add((worker_idx as u64).wrapping_mul(RATIO));
                 let options = SolveOptions {
                     timeout_ms: args.timeout.map(|s| s * 1000),
                     seed: Some(seed),
