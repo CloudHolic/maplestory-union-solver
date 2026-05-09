@@ -73,6 +73,7 @@ struct Args {
     json: bool
 }
 
+//noinspection DuplicatedCode
 fn main() -> ExitCode {
     let args = Args::parse();
     match run(&args) {
@@ -92,7 +93,7 @@ struct WorkerStats {
 
 /// Outcome of one worker race (or single-worker run).
 struct RunOutcome {
-    /// Wall-clock elapsed for the whole race.
+    /// Elapsed time for the whole race.
     elapsed_ms: u64,
 
     /// The winning result.

@@ -3,9 +3,12 @@
 Rust solver for the MapleStory Union placement puzzle. Builds for two
 targets:
 
-- **Native** (default): standalone library and benchmark binary.
-- **WebAssembly**: browser-loadable module via wasm-bindgen and wasm-pack, 
-consumed by the React UI in '../ui/'.
+- **Native** (default): standalone library and CLI binaries.
+- **WebAssembly**: browser-loadable module via wasm-bindgen and
+  wasm-pack, consumed by the React UI in `../ui/`.
+
+Additionally provides an ML training data generator (cfg-tracing
+gated) that produces `.jsonl.gz` shards of branch traces.
 
 See [`docs/algorithms/exact-cover.md`](../docs/algorithms/exact-cover.md)
 for the algorithmic background.
@@ -18,12 +21,14 @@ for the algorithmic background.
 src/
 ├── lib.rs                  public API + WASM entry point
 ├── error.rs                SolverError enum
-├── base/                   primitives (bitset, RNG)
+├── base/                   primitives (bitset, RNG, DIRS const)
 ├── domain/                 puzzle domain (pieces, placements)
 ├── io/                     JSON wire format types
-├── solver/                 backtracking algorithm, pruning, and cooperative cancel
+├── solver/                 backtracking algorithm, pruning, cancel
+├── ml/                     ML training data (cfg-tracing only)
 └── bin/
-    └──benchmark.rs        native CLI runner
+    ├── benchmark.rs        solver portfolio benchmark
+    └── generate.rs         ML training data generator (cfg-tracing only)
 tests/
 └── exact_cover_basic.rs    integration tests (cargo test)
 ```
@@ -45,6 +50,21 @@ cargo build --release --bin benchmark
 ```
 
 Run `benchmark --help` for the full flag list.
+
+### ML training data generator binary
+
+Requires `tracing` feature enabled.
+
+Synthesizes random ExactCover instances and runs the solver with
+branch tracing enabled, emitting `.jsonl.gz` shards for downstream
+PyTorch training.
+
+```sh
+cargo build --release --bin generate --features tracing
+./target/release/generate [--seed N] [--count N] [--out <path/to/output>]  [--shard-size-mb 100]
+```
+
+Run `generate --help` for the full flag list.
 
 ### WebAssembly module
 

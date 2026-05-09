@@ -25,7 +25,7 @@ cfg_if! {
         pub use polyomino::PolyominoCatalog;
         pub use tracer::Tracer;
         
-        pub(crate) use board::{Group, GroupId};
+        pub(crate) use board::{Group};
         pub(crate) use canonical::{BITMAP_SIZE, canonical_bitmap};
         pub(crate) use piece_pool::build_piece_pool;
         pub(crate) use target::build_target_cells;

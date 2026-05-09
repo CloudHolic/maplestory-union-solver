@@ -3,7 +3,7 @@
 
 //! Static MapleStory Union board layout.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::domain::Coord;
 
@@ -66,15 +66,14 @@ impl GroupId {
 /// One of the 16 groups.
 pub(crate) struct Group {
     pub id: GroupId,
-    pub cells: Vec<Coord>,
-    pub contains_center: bool
+    pub cells: Vec<Coord>
 }
 
 /// Static board layout, fully parsed.
 pub struct UnionBoard {
-    pub all_cells: Vec<Coord>,
-    pub center_cells: Vec<Coord>,
-    pub groups: Vec<Group>
+    pub(crate) all_cells: Vec<Coord>,
+    pub(crate) center_cells: Vec<Coord>,
+    pub(crate) groups: Vec<Group>
 }
 
 impl UnionBoard {
@@ -102,13 +101,9 @@ impl UnionBoard {
             (BOARD_HEIGHT / 2, BOARD_WIDTH / 2 - 1),
             (BOARD_HEIGHT / 2, BOARD_WIDTH / 2),
         ];
-        let center_set: HashSet<Coord> = center_cells.iter().copied().collect();
 
         let mut groups: Vec<Group> = by_group.into_iter()
-            .map(|(id, cells)| {
-                let contains_center = cells.iter().any(|c| center_set.contains(c));
-                Group { id, cells, contains_center }
-            })
+            .map(|(id, cells)| Group { id, cells })
             .collect();
 
         // HasMap iteration order is non-deterministic - sort for reproducibility
@@ -129,6 +124,8 @@ impl UnionBoard {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::collections::HashSet;
 
     #[test]
     fn total_cell_count_is_440() {
@@ -169,8 +166,9 @@ mod tests {
     #[test]
     fn center_belongs_to_inner_groups_2_3_6_7() {
         let board = UnionBoard::new();
+        let center_set: HashSet<Coord> = board.center_cells.iter().copied().collect();
         let center_groups: Vec<&GroupId> = board.groups.iter()
-            .filter(|g| g.contains_center)
+            .filter(|g| g.cells.iter().any(|c| center_set.contains(c)))
             .map(|g| &g.id)
             .collect();
 

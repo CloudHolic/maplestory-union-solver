@@ -3,14 +3,14 @@
 
 //! Synthesizes target cell selections matching observed MapleStory player patterns.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use rand::Rng;
 use rand::RngExt;
 use rand::seq::IndexedRandom;
 
 use crate::base::{DIRS, shuffle};
 use crate::domain::Coord;
-use crate::ml::{Group, GroupId, UnionBoard};
+use crate::ml::{Group, UnionBoard};
 
 /// Result of target cell selection for one ML training instance.
 pub(crate) struct TargetSelection {
