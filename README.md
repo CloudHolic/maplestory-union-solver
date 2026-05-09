@@ -38,7 +38,7 @@ All computation happens client-side. No server-side calculation is involved.
 
 ```
 ui/       React frontend
-wasm/     Rust solver (WASM + native targets)
+wasm/     Rust solver (WASM + native targets) + ML data generator
 ml/       Python ML training pipeline (dev-time only)
 models/   Trained ONNX models
 docs/     Architecture and algorithm documentation
