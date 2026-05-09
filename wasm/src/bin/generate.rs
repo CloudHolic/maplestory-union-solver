@@ -54,8 +54,9 @@ struct Args {
     count: usize,
 
     /// Master seed for instance synthesis and worker seed seeding.
-    #[arg(short, long, default_value_t = 42)]
-    seed: u64,
+    /// If omitted, draws from system entropy.
+    #[arg(short, long)]
+    seed: Option<u64>,
 
     /// Per-instance solver timeout in seconds. No timeout if omitted.
     #[arg(short, long)]
@@ -293,15 +294,16 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
         n => n
     };
 
+    let master_seed = args.seed.unwrap_or_else(|| rand::random::<u64>());
     if !args.quiet {
         eprintln!(
-            "generating {} instances ({} workers each, seed {})",
-            args.count, n_workers, args.seed
+            "generating {} instances ({} workers each, seed {:#x})",
+            args.count, n_workers, master_seed
         );
     }
 
     let mut shard_writer = ShardWriter::new(args.out.clone(), args.shard_size_mb * 1024 * 1024)?;
-    let mut master_rng = Xoshiro256PlusPlus::seed_from_u64(args.seed);
+    let mut master_rng = Xoshiro256PlusPlus::seed_from_u64(master_seed);
     let mut succeeded = 0u32;
     let mut failed = 0u32;
 
