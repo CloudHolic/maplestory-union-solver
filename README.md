@@ -37,11 +37,12 @@ All computation happens client-side. No server-side calculation is involved.
 ## Repository layout
 
 ```
-ui/       React frontend
-wasm/     Rust solver (WASM + native targets) + ML data generator
-ml/       Python ML training pipeline (dev-time only)
-models/   Trained ONNX models
-docs/     Architecture and algorithm documentation
+frontend/     React frontend
+backend/      Go backend
+solver/       Rust solver (WASM + native targets) + ML data generator
+poset/        Python ML training pipeline (dev-time only)
+models/       Trained ONNX models
+docs/         Architecture and algorithm documentation
 ```
 
 Each subdirectory has its own `README.md` with build instructions.
@@ -67,9 +68,9 @@ which produces a static bundle in `ui/dist/`.
 This repository uses multiple licenses. See [`LICENSE-POLICY.md`](LICENSE-POLICY.md)
 for the mapping between directories and applicable licenses.
 
-- Solver core (`wasm/`): **AGPL-3.0-or-later**
-- ML pipeline (`ml/`): **GPL-3.0-or-later**
-- Frontend (`ui/`): **MIT**
-- Server (`server/`): **MIT**
+- Solver core (`solver/`): **AGPL-3.0-or-later**
+- ML pipeline (`poset/`): **GPL-3.0-or-later**
+- Frontend (`frontend/`): **MIT**
+- Server (`backend/`): **MIT**
 - Trained models (`models/`): **CC-BY-4.0**
 - Documentation (`docs/`): **CC-BY-4.0**
