@@ -1,4 +1,4 @@
-# maplestory-union-solver/ui
+# maplestory-union-solver/frontend
 
 React frontend for the MapleStory Union placement solver.
 

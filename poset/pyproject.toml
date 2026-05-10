@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = "GPL-3.0-or-later"
 license-files = ["COPYING"]
-authors = [{ name = "CloudHolic", email = "cloudhoilc@pm.me" }]
+authors = [{ name = "CloudHolic", email = "cloudholic@pm.me" }]
 dependencies = [
     "numpy>=2.4.4",
+    "onnxruntime-gpu>=1.26.0",
+    "safetensors>=0.7.0",
     "torch>=2.11.0",
     "tqdm>=4.67.3",
 ]
@@ -17,6 +19,9 @@ dependencies = [
 dev = [
     "pytest>=9.0.3",
     "ruff>=0.15.12",
+]
+training = [
+    "tqdm>=4.67.3",
 ]
 
 [build-system]
@@ -27,11 +32,11 @@ build-backend = "hatchling.build"
 packages = ["src/poset"]
 
 [tool.hatch.build.targets.sdist]
-inlcude = ["/pyproject.toml", "/scripts", "/src", "/tests"]
+include = ["/pyproject.toml", "/src", "/training", "/scripts", "/tests"]
 
 [tool.ruff]
 line-length = 100
-src = ["src", "scripts", "tests"]
+src = ["src", "scripts", "tests", "training"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "N"]
