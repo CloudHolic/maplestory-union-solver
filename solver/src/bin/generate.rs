@@ -6,10 +6,6 @@
 //! Synthesizes random `ExactCoverInput`s and runs the solver with branch tracing.
 //! Successful solves emit JSONL records to a single output file.
 
-#[cfg(not(target_arch = "wasm32"))]
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 use std::error::Error;
 use std::fs::{File, create_dir_all};
 use std::io::{BufWriter, Write};
