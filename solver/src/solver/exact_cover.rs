@@ -566,8 +566,7 @@ fn backtrack(
 
         t.on_branch(BranchEvent {
             candidates: &valid_candidates,
-            state: &env.state,
-            placements: &ctx.placements
+            state: &env.state
         }, env.total_nodes);
     }
 

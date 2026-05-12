@@ -27,9 +27,6 @@ pub(crate) struct BranchEvent<'a> {
 
     /// Current solver state immediately before any candidate is applied.
     pub state: &'a SearchState,
-
-    /// Flat placement list (for index lookups during post-state computation).
-    pub placements: &'a [Placement]
 }
 
 /// Branch-trace collector.
@@ -535,14 +532,10 @@ mod tests {
         let mut t = new_tracer();
         setup(&mut t, &["P0"], &["P0"], &[(0, 0), (0, 1)], &[]);
 
-        let placements = vec![
-            placement(0, &[0], false),
-            placement(0, &[1], false)
-        ];
         let state = SearchState::new(vec![1], 0);
 
         t.on_branch(
-            BranchEvent { candidates: &[0], state: &state, placements: &placements },
+            BranchEvent { candidates: &[0], state: &state },
             100
         );
 
@@ -556,7 +549,7 @@ mod tests {
         assert_eq!(t.pending_candidates[0].subtree_nodes, 50);
 
         t.on_branch(
-            BranchEvent { candidates: &[1], state: &state, placements: &placements },
+            BranchEvent { candidates: &[1], state: &state },
             150
         );
 
@@ -574,11 +567,10 @@ mod tests {
         {
             let mut t = new_tracer();
             setup(&mut t, &["P0"], &["P0"], &[(0, 0)], &[]);
-            let placements = vec![placement(0, &[0], false)];
             let state = SearchState::new(vec![1], 0);
 
             t.on_branch(
-                BranchEvent { candidates: &[0], state: &state, placements: &placements },
+                BranchEvent { candidates: &[0], state: &state },
                 0
             );
             assert!(!t.pending_candidates.is_empty());
@@ -595,11 +587,10 @@ mod tests {
         {
             let mut t = new_tracer();
             setup(&mut t, &["P0"], &["P0"], &[(0, 0)], &[]);
-            let placements = vec![placement(0, &[0], false)];
             let state = SearchState::new(vec![1], 0);
 
             t.on_branch(
-                BranchEvent { candidates: &[0], state: &state, placements: &placements },
+                BranchEvent { candidates: &[0], state: &state },
                 0
             );
 
@@ -622,7 +613,7 @@ mod tests {
         let state = SearchState::new(vec![1], 0);
 
         t.on_branch(
-            BranchEvent { candidates: &[0], state: &state, placements: &placements },
+            BranchEvent { candidates: &[0], state: &state },
             0
         );
         t.on_attempt(0, false, 10);
