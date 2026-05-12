@@ -41,7 +41,7 @@ def _collate(items: list[TrainingItem]) -> TrainBatch:
 
     # Per-item tensor dicts (un-padded along piece dim).
     per_item_tensors = [
-        post_state_to_tensors(it.candidate.post_state, it.header.canonical_bitmaps)
+        post_state_to_tensors(it.post_state, it.header.canonical_bitmaps)
         for it in items
     ]
 

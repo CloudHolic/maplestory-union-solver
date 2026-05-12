@@ -20,10 +20,23 @@ BOARD_SIZE = BOARD_ROWS * BOARD_COLS # 440
 # Schema dataclasses
 
 @dataclass(slots=True, frozen=True)
+class PreState:
+    """Board state at branch entry, before any candidate placement is applied.
+
+    Fields:
+        - empty_bitmap: bytes of length 28. Bit i = whether board-cell i is empty.
+        - center_mark: 0 or 1. SState's has_center_mark at branch entry.
+        - counts: remaining count per piece type, raw integers.
+    """
+
+    empty_bitmap: bytes
+    center_mark: int
+    counts: list[int]
+
+
+@dataclass(slots=True, frozen=True)
 class PostState:
     """Board state after virtually applying a candidate placement.
-
-    The model's V(s) input.
 
     Fields:
         - empty_target_indices: row-major indices (r * BOARD_COLS + c) of empty target cells.

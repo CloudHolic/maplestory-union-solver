@@ -260,7 +260,7 @@ impl SolveContext {
         // 10. Add tracer if `tracing` enabled.
         #[cfg(feature = "tracing")]
         if let Some(t) = tracer {
-            t.start_instance(&type_ids, &input.common.piece_defs, &board.cells);
+            t.start_instance(&type_ids, &input.common.piece_defs, &board.cells, &placements);
         }
 
         Ok(Self {
