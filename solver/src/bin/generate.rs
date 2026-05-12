@@ -6,7 +6,6 @@
 //! Synthesizes random `ExactCoverInput`s and runs the solver with branch tracing.
 //! Successful solves emit JSONL records to a single output file.
 
-use std::arch::x86_64::_mm256_abs_epi8;
 use std::error::Error;
 use std::fs::{File, create_dir_all, metadata, remove_dir_all, remove_file, create_dir};
 use std::io::{BufWriter, Write, copy};
@@ -21,7 +20,6 @@ use clap::Parser;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use rand::{Rng, SeedableRng};
-use rand_distr::num_traits::WrappingAdd;
 use rand_xoshiro::Xoshiro256PlusPlus;
 
 use solver::{
