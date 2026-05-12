@@ -123,26 +123,28 @@ fn tracer_captures_branches_during_solve() {
         let candidates = branch["candidates"].as_array().expect("candidates array");
         assert!(!candidates.is_empty(), "branch must have candidates");
 
+        let pre = &branch["pre_state"];
+        assert!(pre.is_object(), "pre_state must live at branch level");
+
+        let bitmap = pre["empty_bitmap"].as_array()
+            .expect("pre_state.empty_bitmap must be array");
+        assert_eq!(bitmap.len(), 28, "empty_bitmap is a fixed 28-byte dense bitmap");
+        assert!(pre["center_mark"].is_boolean(), "pre_state.center_mark must be boolean");
+        assert!(pre["counts"].is_array(), "pre_state.counts must be array");
+
         for cand in candidates {
             assert!(cand["placement_idx"].is_u64());
             assert!(cand["tried"].is_boolean());
             assert!(cand["succeeded"].is_boolean());
             assert!(cand["subtree_nodes"].is_u64());
 
-            let post = &cand["post_state"];
             assert!(
-                post["empty_target_indices"].is_array(),
-                "post_state.empty_target_indices must be array"
+                cand.get("post_state").is_none(),
+                "candidate must NOT contain post_state (b-variant: lives at branch level as pre_state)"
             );
             assert!(
-                post["center_mark"].is_boolean(),
-                "post_state.center_mark must be boolean"
-            );
-            assert!(post["counts"].is_array(), "post_state.counts must be array");
-
-            assert!(
-                post.get("pieces").is_none(),
-                "post_state must NOT contain pieces (it lives in the instance header)"
+                cand.get("pieces").is_none(),
+                "candidate must NOT contain pieces (it lives in the instance header)"
             );
         }
     }

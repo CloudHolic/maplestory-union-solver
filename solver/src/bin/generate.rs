@@ -6,14 +6,14 @@
 //! Synthesizes random `ExactCoverInput`s and runs the solver with branch tracing.
 //! Successful solves emit JSONL records to a single output file.
 
+use std::arch::x86_64::_mm256_abs_epi8;
 use std::error::Error;
-use std::fs::{File, create_dir_all};
-use std::io::{BufWriter, Write};
-use std::mem::take;
-use std::path::PathBuf;
+use std::fs::{File, create_dir_all, metadata, remove_dir_all, remove_file, create_dir};
+use std::io::{BufWriter, Write, copy};
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::mpsc;
 use std::thread;
 use std::time::Instant;
 
@@ -21,6 +21,7 @@ use clap::Parser;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use rand::{Rng, SeedableRng};
+use rand_distr::num_traits::WrappingAdd;
 use rand_xoshiro::Xoshiro256PlusPlus;
 
 use solver::{
@@ -41,11 +42,11 @@ fn auto_workers() -> usize {
 #[derive(Parser, Debug)]
 #[command(version, about = "Synthesize ML training instances", long_about = None)]
 struct Args {
-    /// Output JSONL file path.
+    /// Output directory for shards. Per-worker temp files go under `<out>/tmp/`.
     #[arg(short, long)]
     out: PathBuf,
 
-    /// Maximum uncompressed size per shard, in megabytes.
+    /// Maximum compressed size per shard, in megabytes.
     #[arg(long, default_value_t = 100)]
     shard_size_mb: u64,
 
@@ -90,11 +91,15 @@ fn main() -> ExitCode {
     }
 }
 
-/// Stats from one instance's parallel race.
-struct WorkerStats {
+/// One worker's result within a parallel race.
+///
+/// `temp_path` is always set - even on failure or solver error - so the
+/// main thread can unconditionally unlink the file after the race ends.
+struct WorkerResult {
     worker_idx: usize,
+    succeeded: bool,
     node_count: u64,
-    trace_bytes: Vec<u8>
+    temp_path: PathBuf
 }
 
 /// Outcome of one instance's parallel race.
@@ -102,57 +107,53 @@ struct RunOutcome {
     /// Elapsed time for the race.
     elapsed_ms: u64,
 
-    /// The winning worker's stats and trace bytes.
-    winner: Option<WorkerStats>,
+    /// First successful worker, if any.
+    winner: Option<WorkerResult>,
 
-    /// Number of workers that returned.
+    /// All other workers (failed or solver-errored).
+    /// Their temp files exist on disk and must be unlinked.
+    losers: Vec<WorkerResult>,
+
+    /// Total workers that reported back (= winner.is_some() as usize + losers.len())
     workers_reported: usize
 }
 
-/// `Write` adapter funneling into a thread-shared byte buffer.
-struct SharedBuf(Arc<Mutex<Vec<u8>>>);
-
-impl Write for SharedBuf {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-/// Rotating, gzip-compressed JSONL shard writer.
+/// Rotating shard writer.
+///
+/// appends per-instance gzip-compressed traces to the current shard by raw byte copy.
 struct ShardWriter {
     out_dir: PathBuf,
-    max_uncompressed_bytes: u64,
+    /// Cap on the compressed size of each shard.
+    max_bytes: u64,
     next_shard_idx: u32,
     current: Option<CurrentShard>
 }
 
 struct CurrentShard {
-    encoder: GzEncoder<BufWriter<File>>,
-    uncompressed_written: u64,
+    writer: BufWriter<File>,
+    bytes_written: u64,
     path: PathBuf
 }
 
 impl ShardWriter {
-    fn new(out_dir: PathBuf, max_uncompressed_bytes: u64) -> std::io::Result<Self> {
+    fn new(out_dir: PathBuf, max_bytes: u64) -> std::io::Result<Self> {
         create_dir_all(&out_dir)?;
         Ok(Self {
             out_dir,
-            max_uncompressed_bytes,
+            max_bytes,
             next_shard_idx: 0,
             current: None
         })
     }
 
-    fn write_instance(&mut self, bytes: &[u8]) -> std::io::Result<()> {
-        if let Some(c) = &self.current {
-            if c.uncompressed_written + bytes.len() as u64 > self.max_uncompressed_bytes {
-                self.close_current()?;
-            }
+    /// Appends the entire contents of `src` to the current shard.
+    /// Rotates first if needed.
+    fn append_file(&mut self, src: &Path) -> std::io::Result<()> {
+        let src_size = metadata(src)?.len();
+
+        if let Some(c) = &self.current
+            && c.bytes_written + src_size > self.max_bytes {
+            self.close_current()?;
         }
 
         if self.current.is_none() {
@@ -160,8 +161,9 @@ impl ShardWriter {
         }
 
         let c = self.current.as_mut().expect("current shard just opened");
-        c.encoder.write_all(bytes)?;
-        c.uncompressed_written += bytes.len() as u64;
+        let mut src_file = File::open(src)?;
+        let copied = copy(&mut src_file, &mut c.writer)?;
+        c.bytes_written += copied;
         Ok(())
     }
 
@@ -169,23 +171,17 @@ impl ShardWriter {
         let path = self.out_dir
             .join(format!("synth-{:04}.jsonl.gz", self.next_shard_idx));
         let file = File::create(&path)?;
-        let buf = BufWriter::new(file);
-        let encoder = GzEncoder::new(buf, Compression::default());
+        let writer = BufWriter::new(file);
 
-        self.current = Some(CurrentShard {
-            encoder,
-            uncompressed_written: 0,
-            path
-        });
-
+        self.current = Some(CurrentShard { writer, bytes_written: 0, path });
         self.next_shard_idx += 1;
         Ok(())
     }
 
     fn close_current(&mut self) -> std::io::Result<()> {
-        if let Some(c) = self.current.take() {
-            let buf = c.encoder.finish()?;
-            buf.into_inner()
+        if let Some(mut c) = self.current.take() {
+            c.writer.flush()?;
+            c.writer.into_inner()
                 .map_err(|e| std::io::Error::new(
                     std::io::ErrorKind::Other,
                     format!("flushing shard {:?}: {}", c.path, e.error())
@@ -206,56 +202,32 @@ fn run_parallel(
     instance_id: &str,
     args: &Args,
     n_workers: usize,
-    base_seed: u64
+    base_seed: u64,
+    temp_dir: &Path
 ) -> Result<RunOutcome, Box<dyn Error>> {
     let cancel_atom = AtomicI32::new(0);
-    let buffers: Vec<Arc<Mutex<Vec<u8>>>> = (0..n_workers)
-        .map(|_| Arc::new(Mutex::new(Vec::new())))
-        .collect();
-    let (tx, rx) = mpsc::channel::<(usize, u64)>();
+    let (tx, rx) = mpsc::channel::<WorkerResult>();
     let start_time = Instant::now();
 
+    // Pre-compute every worker's temp file path so the main thread can clean them up
+    // even if a worker panics before sending its result.
+    let temp_paths: Vec<PathBuf> = (0..n_workers)
+        .map(|idx| temp_dir.join(format!("w{idx}_{instance_id}.jsonl.gz")))
+        .collect();
+
     thread::scope(|s| {
-        for (worker_idx, buf) in buffers.iter().enumerate() {
-            let buf = Arc::clone(buf);
+        for (worker_idx, temp_path) in temp_paths.iter().enumerate() {
             let tx = tx.clone();
             let cancel_ref = &cancel_atom;
             let instance_id = instance_id.to_string();
+            let temp_path = temp_path.clone();
 
             s.spawn(move || {
-                let writer = SharedBuf(buf);
-                let mut tracer = Tracer::new(Box::new(writer));
-                tracer.set_instance_id(instance_id);
-
-                let seed = base_seed.wrapping_add((worker_idx as u64).wrapping_mul(RATIO));
-                let options = SolveOptions {
-                    timeout_ms: args.timeout.map(|s| s * 1000),
-                    seed: Some(seed),
-                    luby_base: args.luby_base
-                };
-
-                let cancel = CancelFlag::new(cancel_ref);
-                match solve_exact_cover(input, options, Some(&cancel), Some(&mut tracer)) {
-                    Ok(r) => {
-                        let success = r.solution.is_some();
-                        if success {
-                            cancel_ref.store(1, Ordering::Relaxed);
-                        }
-
-                        let _ = tx.send((
-                            worker_idx,
-                            if success {
-                                r.stats.common.node_count
-                            } else {
-                                0
-                            }
-                        ));
-                    }
-
-                    Err(e) => {
-                        eprintln!("worker {worker_idx} error: {e}")
-                    }
-                }
+                let result = run_worker(
+                    input, &*instance_id, args, worker_idx,
+                    base_seed, cancel_ref, &temp_path
+                );
+                let _ = tx.send(result);
             });
         }
 
@@ -264,26 +236,84 @@ fn run_parallel(
 
     let elapsed_ms = start_time.elapsed().as_millis() as u64;
 
-    // Collect all results.
-    let mut results: Vec<(usize, u64)> = rx.iter().collect();
+    let mut results: Vec<WorkerResult> = rx.iter().collect();
+    results.sort_by_key(|r| r.worker_idx);
     let workers_reported = results.len();
-    results.sort_by_key(|(idx, _)| *idx);
 
-    // Winner = lowest-elapsed_ms worker that produced a non-zero node_count.
-    let winner = results
-        .into_iter()
-        .filter(|(_, nodes)| *nodes > 0)
-        .next()
-        .map(|(idx, nodes)| {
-            let bytes = take(&mut *buffers[idx].lock().unwrap());
-            WorkerStats {
-                worker_idx: idx,
-                node_count: nodes,
-                trace_bytes: bytes
+    // First success is the winner; everything else is a loser to clean up.
+    let mut winner = None;
+    let mut losers = Vec::new();
+    for r in results {
+        if winner.is_none() && r.succeeded {
+            winner = Some(r);
+        } else {
+            losers.push(r);
+        }
+    }
+
+    Ok(RunOutcome { elapsed_ms, winner, losers, workers_reported })
+}
+
+/// Runs a single worker.
+fn run_worker(
+    input: &ExactCoverInput,
+    instance_id: &str,
+    args: &Args,
+    worker_idx: usize,
+    base_seed: u64,
+    cancel_ref: &AtomicI32,
+    temp_path: &Path
+) -> WorkerResult {
+    let file = match File::create(temp_path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("worker {worker_idx} failed to create temp file {temp_path:?}: {e}");
+            return WorkerResult {
+                worker_idx, succeeded: false, node_count: 0,
+                temp_path: temp_path.to_path_buf()
+            };
+        }
+    };
+
+    let encoder = GzEncoder::new(BufWriter::new(file), Compression::default());
+
+    let mut tracer = Tracer::new(Box::new(encoder));
+    tracer.set_instance_id(instance_id.to_string());
+
+    let seed = base_seed.wrapping_add((worker_idx as u64).wrapping_mul(RATIO));
+    let options = SolveOptions {
+        timeout_ms: args.timeout.map(|s| s * 1000),
+        seed: Some(seed),
+        luby_base: args.luby_base
+    };
+
+    let cancel = CancelFlag::new(cancel_ref);
+    let solve_result = solve_exact_cover(input, options, Some(&cancel), Some(&mut tracer));
+
+    drop(tracer);
+
+    match solve_result {
+        Ok(r) => {
+            let succeeded = r.solution.is_some();
+            if succeeded {
+                cancel_ref.store(1, Ordering::Relaxed);
             }
-        });
 
-    Ok(RunOutcome { elapsed_ms, winner, workers_reported })
+            WorkerResult {
+                worker_idx, succeeded,
+                node_count: if succeeded { r.stats.common.node_count } else { 0 },
+                temp_path: temp_path.to_path_buf()
+            }
+        }
+
+        Err(e) => {
+            eprintln!("worker {worker_idx} error: {e}");
+            WorkerResult {
+                worker_idx, succeeded: false, node_count: 0,
+                temp_path: temp_path.to_path_buf()
+            }
+        }
+    }
 }
 
 fn run(args: &Args) -> Result<(), Box<dyn Error>> {
@@ -302,6 +332,14 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
         );
     }
 
+    // Wipe any leftover temp files from a previous interrupted run
+    // so disk usage doesn't accumulate silently across batches.
+    let temp_dir = args.out.join("tmp");
+    if temp_dir.exists() {
+        remove_dir_all(&temp_dir)?;
+    }
+    create_dir(&temp_dir)?;
+
     let mut shard_writer = ShardWriter::new(args.out.clone(), args.shard_size_mb * 1024 * 1024)?;
     let mut master_rng = Xoshiro256PlusPlus::seed_from_u64(master_seed);
     let mut succeeded = 0u32;
@@ -312,35 +350,42 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
         let instance_id = format!("synth_{i:08}");
         let base_seed = master_rng.next_u64();
 
-        let outcome = run_parallel(&input, &instance_id, args, n_workers, base_seed)?;
+        let outcome = run_parallel(&input, &instance_id, args, n_workers, base_seed, &temp_dir)?;
 
-        match &outcome.winner {
-            Some(w) => {
-                shard_writer.write_instance(&w.trace_bytes)?;
-                succeeded += 1;
-                if !args.quiet {
-                    eprintln!(
-                        "[{:>4}/{:<4}] {} solved in {}ms (worker #{}, {} nodes, {} bytes)",
-                        i + 1, args.count, instance_id,
-                        outcome.elapsed_ms, w.worker_idx, w.node_count, w.trace_bytes.len()
-                    );
-                }
-            }
+        if let Some(w) = &outcome.winner {
+            let bytes_written = metadata(&w.temp_path)?.len();
+            shard_writer.append_file(&w.temp_path)?;
+            succeeded += 1;
 
-            None => {
-                failed += 1;
-                if !args.quiet {
-                    eprintln!(
-                        "[{:>4}/{:<4}] {} all {} workers failed in {}ms",
-                        i + 1, args.count, instance_id,
-                        outcome.workers_reported, outcome.elapsed_ms
-                    );
-                }
+            if !args.quiet {
+                eprintln!(
+                    "[{:>4}/{:<4}] {} solved in {}ms (worker #{}, {} nodes, {} compressed bytes)",
+                    i + 1, args.count, instance_id, outcome.elapsed_ms,
+                    w.worker_idx, w.node_count, bytes_written
+                );
             }
+        } else {
+            failed += 1;
+            if !args.quiet {
+                eprintln!(
+                    "[{:>4}/{:<4}] {} all {} workers failed in {}ms",
+                    i + 1, args.count, instance_id,
+                    outcome.workers_reported, outcome.elapsed_ms
+                );
+            }
+        }
+
+        // Unlink all temp files (winner already appended, losers discarded).
+        if let Some(w) = &outcome.winner {
+            let _ = remove_file(&w.temp_path);
+        }
+        for l in &outcome.losers {
+            let _ = remove_file(&l.temp_path);
         }
     }
 
     shard_writer.finish()?;
+    let _ = remove_dir_all(&temp_dir);
     eprintln!("\ndone. {} succeeded, {} failed.", succeeded, failed);
     Ok(())
 }

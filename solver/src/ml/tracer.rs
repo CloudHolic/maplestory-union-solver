@@ -15,6 +15,7 @@ use crate::error::Result;
 use crate::io::PieceDefJson;
 use crate::ml::{BITMAP_SIZE, GRID_COLS, canonical_bitmap};
 use crate::solver::SearchState;
+use crate::SolverError;
 
 /// Information passed to [`Tracer::on_branch`] at every branch point.
 ///
@@ -42,12 +43,12 @@ pub(crate) struct BranchEvent<'a> {
 /// 5. [`Tracer::on_solve_complete`] — once per instance. On success,
 ///    finalizes the buffered records and writes them as JSONL.
 pub struct Tracer {
-    /// JSONL output sink. Used at [`Tracer::on_solve_complete`] on success.
+    /// JSONL output sink. Branches are written as they finalize, not buffered.
     writer: Box<dyn Write>,
 
     // ─── Per-instance constants (set in start_instance) ───
 
-    /// Canonical 5x5 bitmaps for every piece_def, in input piece_defs order.
+    /// Canonical 6x6 bitmaps for every piece_def, in input piece_defs order.
     canonical_bitmaps: Vec<u8>,
 
     /// Maps board cell index -> row-major grid index (`r * GRID_COLS + c`).
@@ -69,9 +70,13 @@ pub struct Tracer {
     /// or on_attempt call, used as the baseline for subtree node counting.
     nodes_at_branch_entry: u64,
 
-    /// Finalized branch records for the current instance.
-    /// Dumped as JSONL on success, discarded on failure.
-    instance_buffer: Vec<BranchRecord>,
+    /// Whether the instance header row has been written to `writer`.
+    /// Lazily set on the first finalized branch - trivial instances produce no output.
+    header_emitted: bool,
+
+    /// First I/O error encountered during streaming writes, deferred until
+    /// `on_solve_complete` so the backtrack loop's signature stays clean.
+    pending_io_error: Option<SolverError>,
 
     /// Most-recent branch's pending candidate records.
     pending_candidates: Vec<CandidateRecord>,
@@ -184,7 +189,8 @@ impl Tracer {
             instance_id: String::new(),
             next_branch_id: 0,
             nodes_at_branch_entry: 0,
-            instance_buffer: Vec::new(),
+            header_emitted: false,
+            pending_io_error: None,
             pending_candidates: Vec::new(),
             pending_pre_state: None,
             placements: Vec::new()
@@ -243,9 +249,10 @@ impl Tracer {
         }
 
         // Reset per-instance state.
-        self.instance_buffer.clear();
         self.next_branch_id = 0;
         self.nodes_at_branch_entry = 0;
+        self.header_emitted = false;
+        self.pending_io_error = None;
         self.pending_candidates.clear();
         self.pending_pre_state = None;
     }
@@ -297,48 +304,24 @@ impl Tracer {
     }
 
     /// Called once per instance at solve completion.
-    /// On success, finalizes any pending branch and emits the buffered records as JSONL.
-    /// On failure, discards the buffer.
+    /// On success, finalizes any pending branch and propagates any deferred I/O error.
+    /// On failure, only clears pending state.
     pub(crate) fn on_solve_complete(&mut self, success: bool) -> Result<()> {
         if !success {
-            self.instance_buffer.clear();
             self.pending_candidates.clear();
             self.pending_pre_state = None;
+
+            // Note: header_emitted, next_branch_id, and pending_io_error stay as_is.
             return Ok(());
         }
 
         self.finalize_pending();
 
-        // Skip output entirely for trivial instances that never branched -
-        // such instances carry no learning signal.
-        if self.instance_buffer.is_empty() {
-            return Ok(());
-        }
-
-        // Emit instance header row.
-        let header = InstanceHeader {
-            kind: "instance",
-            instance_id: &self.instance_id,
-            canonical_bitmaps: &self.canonical_bitmaps,
-            cell_to_grid_idx: &self.cell_to_grid_idx,
-            placements: &self.placements
-        };
-        serde_json::to_writer(&mut self.writer, &header)?;
-        self.writer.write_all(b"\n")?;
-
-        // Emit one branch row per record.
-        for record in &self.instance_buffer {
-            let line = BranchLine {
-                kind: "branch",
-                instance_id: &self.instance_id,
-                record
-            };
-            serde_json::to_writer(&mut self.writer, &line)?;
-            self.writer.write_all(b"\n")?;
+        if let Some(e) = self.pending_io_error.take() {
+            return Err(e);
         }
 
         self.writer.flush()?;
-        self.instance_buffer.clear();
         Ok(())
     }
 
@@ -373,21 +356,63 @@ impl Tracer {
     }
 
     /// Moves pending candidates into a finalized [`BranchRecord`] and
-    /// pushes onto `instance_buffer`. No-op if no pending data.
+    /// streams it directly to `writer`.
     fn finalize_pending(&mut self) {
         if self.pending_candidates.is_empty() {
             return;
         }
 
+        // Skip further writes once an error has been recorded - repeated
+        // attempts would just rediscover the same broken sink.
+        if self.pending_io_error.is_some() {
+            self.pending_candidates.clear();
+            self.pending_pre_state = None;
+            return;
+        }
+
+        if let Err(e) = self.try_emit_pending() {
+            self.pending_io_error = Some(e);
+            self.pending_candidates.clear();
+            self.pending_pre_state = None;
+        }
+    }
+
+    /// Inner helper for [`finalize_pending`] that may return an I/O / serde error.
+    fn try_emit_pending(&mut self) -> Result<()> {
+        if !self.header_emitted {
+            let header = InstanceHeader {
+                kind: "instance",
+                instance_id: &self.instance_id,
+                canonical_bitmaps: &self.canonical_bitmaps,
+                cell_to_grid_idx: &self.cell_to_grid_idx,
+                placements: &self.placements
+            };
+
+            serde_json::to_writer(&mut self.writer, &header)?;
+            self.writer.write_all(b"\n")?;
+            self.header_emitted = true;
+        }
+
         let branch_id = self.next_branch_id;
         self.next_branch_id += 1;
 
-        self.instance_buffer.push(BranchRecord {
+        let record = BranchRecord {
             branch_id,
             pre_state: self.pending_pre_state.take()
                 .expect("pending_pre_state must be set by on_branch before finalize"),
             candidates: take(&mut self.pending_candidates)
-        });
+        };
+
+        let line = BranchLine {
+            kind: "branch",
+            instance_id: &self.instance_id,
+            record: &record
+        };
+
+        serde_json::to_writer(&mut self.writer, &line)?;
+        self.writer.write_all(b"\n")?;
+
+        Ok(())
     }
 }
 
@@ -528,19 +553,19 @@ mod tests {
     }
 
     #[test]
-    fn branch_lifecycle_captures_pre_state_and_measures_subtree() {
-        let mut t = new_tracer();
+    fn branch_lifecycle_captures_pre_state_and_streams_finalized_branches() {
+        let (writer, buf) = make_capture_writer();
+        let mut t = Tracer::new(writer);
+        t.set_instance_id("test_instance".to_string());
         setup(&mut t, &["P0"], &["P0"], &[(0, 0), (0, 1)], &[]);
 
         let state = SearchState::new(vec![1], 0);
 
-        t.on_branch(
-            BranchEvent { candidates: &[0], state: &state },
-            100
-        );
-
+        // First branch enters pending state — nothing should be flushed yet.
+        t.on_branch(BranchEvent { candidates: &[0], state: &state }, 100);
+        assert!(buf.borrow().is_empty(),
+                "no output until finalize_pending fires on next branch or solve complete");
         assert!(t.pending_pre_state.is_some());
-        assert_eq!(t.instance_buffer.len(), 0);
         assert_eq!(t.pending_candidates.len(), 1);
 
         t.on_attempt(0, false, 150);
@@ -548,31 +573,32 @@ mod tests {
         assert!(!t.pending_candidates[0].succeeded);
         assert_eq!(t.pending_candidates[0].subtree_nodes, 50);
 
-        t.on_branch(
-            BranchEvent { candidates: &[1], state: &state },
-            150
-        );
+        // Second on_branch finalizes the first — header + branch 0 should hit the writer.
+        t.on_branch(BranchEvent { candidates: &[1], state: &state }, 150);
 
-        assert_eq!(t.instance_buffer.len(), 1);
-        assert_eq!(t.instance_buffer[0].branch_id, 0);
-        assert_eq!(t.instance_buffer[0].candidates.len(), 1);
+        let text = String::from_utf8(buf.borrow().clone()).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 2, "expected header + 1 branch row, got: {text:?}");
+        assert!(lines[0].contains("\"_kind\":\"instance\""));
+        assert!(lines[1].contains("\"_kind\":\"branch\""));
+        assert!(lines[1].contains("\"branch_id\":0"));
 
+        // Branch 1 still pending.
         assert!(t.pending_pre_state.is_some());
         assert_eq!(t.pending_candidates.len(), 1);
     }
 
     #[test]
-    fn solve_complete_clears_all_buffers_including_pending_pre_state() {
-        // Failure path: discard everything, write nothing.
+    fn solve_complete_resets_pending_state_on_both_success_and_failure() {
+        // Failure path: pending dropped, anything already streamed stays on disk
+        // (the caller's responsibility to unlink the temp file).
         {
-            let mut t = new_tracer();
+            let (writer, _buf) = make_capture_writer();
+            let mut t = Tracer::new(writer);
             setup(&mut t, &["P0"], &["P0"], &[(0, 0)], &[]);
             let state = SearchState::new(vec![1], 0);
 
-            t.on_branch(
-                BranchEvent { candidates: &[0], state: &state },
-                0
-            );
+            t.on_branch(BranchEvent { candidates: &[0], state: &state }, 0);
             assert!(!t.pending_candidates.is_empty());
             assert!(t.pending_pre_state.is_some());
 
@@ -580,24 +606,25 @@ mod tests {
             assert!(t.pending_candidates.is_empty());
             assert!(t.pending_pre_state.is_none(),
                     "pending_pre_state must be reset on failure to prevent leakage into next instance");
-            assert!(t.instance_buffer.is_empty());
         }
 
-        // Success path: write JSONL then clear.
+        // Success path: last pending finalizes and gets streamed.
         {
-            let mut t = new_tracer();
+            let (writer, buf) = make_capture_writer();
+            let mut t = Tracer::new(writer);
+            t.set_instance_id("success_instance".to_string());
             setup(&mut t, &["P0"], &["P0"], &[(0, 0)], &[]);
             let state = SearchState::new(vec![1], 0);
 
-            t.on_branch(
-                BranchEvent { candidates: &[0], state: &state },
-                0
-            );
+            t.on_branch(BranchEvent { candidates: &[0], state: &state }, 0);
 
             t.on_solve_complete(true).unwrap();
             assert!(t.pending_candidates.is_empty());
             assert!(t.pending_pre_state.is_none());
-            assert!(t.instance_buffer.is_empty());
+
+            let text = String::from_utf8(buf.borrow().clone()).unwrap();
+            let lines: Vec<&str> = text.lines().collect();
+            assert_eq!(lines.len(), 2, "expected header + 1 branch on success, got: {text:?}");
         }
     }
 
