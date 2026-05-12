@@ -21,8 +21,8 @@ from pathlib import Path
 
 from torch.utils.data import IterableDataset
 
-from poset.schema import PostState
-from training.schema import BranchRow, Candidate, InstanceHeader
+from poset.schema import PostState, PreState
+from training.schema import BranchRow, Candidate, InstanceHeader, Placement
 
 # Public types
 
@@ -36,6 +36,7 @@ class TrainingItem:
     header: InstanceHeader
     branch: BranchRow
     candidate: Candidate
+    post_state: PostState
 
 
 # Dataset
@@ -87,25 +88,71 @@ def _iter_shard(shard_path: Path) -> Iterator[TrainingItem]:
 
                 for candidate in branch.candidates:
                     if candidate.tried:
-                        yield TrainingItem(current_header, branch, candidate)
+                        post_state = _reconstruct_post_state(
+                            branch.pre_state,
+                            current_header.placements[candidate.placement_idx],
+                            current_header.cell_to_grid_idx
+                        )
+                        yield TrainingItem(current_header, branch, candidate, post_state)
             else:
                 raise ValueError(f"{shard_path}:{line_num}: unknown_kind {kind!r}")
 
 
 # Dataclass parsers
 
+def _reconstruct_post_state(pre: PreState, placement: Placement, cell_to_grid_idx: list[int]) -> PostState:
+    """Apply placement to pre_state to produce post_state."""
+
+    post_bits = bytearray(pre.empty_bitmap)
+    for cell_idx in placement.cells:
+        byte = cell_idx // 8
+        bit = cell_idx % 8
+        post_bits[byte] &= ~(1 << bit) & 0xFF
+
+    empty_target_indices = []
+    for ci in range(len(cell_to_grid_idx)):
+        if (post_bits[ci // 8] >> (ci % 8)) & 1:
+            empty_target_indices.append(cell_to_grid_idx[ci])
+
+    post_counts = list(pre.counts)
+    post_counts[placement.piece_def_idx] -= 1
+
+    post_center_mark = 1 if (pre.center_mark or placement.mark_on_center) else 0
+
+    return PostState(
+        empty_target_indices=empty_target_indices,
+        center_mark=post_center_mark,
+        counts=post_counts
+    )
+
+
 def _parse_instance(row: dict) -> InstanceHeader:
+    placements = [
+        Placement(cells=p["cells"], piece_def_idx=p["piece_def_idx"], mark_on_center=p["mark_on_center"])
+        for p in row["placements"]
+    ]
+
     return InstanceHeader(
         instance_id=row["instance_id"],
-        canonical_bitmaps=row["canonical_bitmaps"]
+        canonical_bitmaps=row["canonical_bitmaps"],
+        cell_to_grid_idx=row["cell_to_grid_idx"],
+        placements=placements
     )
 
 
 def _parse_branch(row: dict) -> BranchRow:
+    pre = row["pre_state"]
+    pre_state = PreState(
+        empty_bitmap=bytes(pre["empty_bitmap"]),
+        center_mark=pre["center_mark"],
+        counts=pre["counts"]
+    )
     candidates = [_parse_candidate(c) for c in row["candidates"]]
+
     return BranchRow(
         instance_id=row["instance_id"],
         branch_id=row["branch_id"],
+        pre_state=pre_state,
         candidates=candidates
     )
 
@@ -114,11 +161,6 @@ def _parse_candidate(row: dict) -> Candidate:
     post = row["post_state"]
     return Candidate(
         placement_idx=row["placement_idx"],
-        post_state=PostState(
-            empty_target_indices=post["empty_target_indices"],
-            center_mark=post["center_mark"],
-            counts=post["counts"]
-        ),
         tried=post["tried"],
         succeeded=post["succeeded"],
         subtree_nodes=post["subtree_nodes"]
