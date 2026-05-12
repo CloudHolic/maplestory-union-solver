@@ -348,6 +348,9 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
         let instance_id = format!("synth_{i:08}");
         let base_seed = master_rng.next_u64();
 
+        let piece_count = input.common.pieces.len();
+        let total_cells = input.target_cells.len();
+
         let outcome = run_parallel(&input, &instance_id, args, n_workers, base_seed, &temp_dir)?;
 
         if let Some(w) = &outcome.winner {
@@ -357,8 +360,9 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
 
             if !args.quiet {
                 eprintln!(
-                    "[{:>4}/{:<4}] {} solved in {}ms (worker #{}, {} nodes, {} compressed bytes)",
-                    i + 1, args.count, instance_id, outcome.elapsed_ms,
+                    "[{:>4}/{:<4}] {} solved in {}ms ({}p/{}c, worker #{}, {} nodes, {} compressed bytes)",
+                    i + 1, args.count, instance_id,
+                    outcome.elapsed_ms, piece_count, total_cells,
                     w.worker_idx, w.node_count, bytes_written
                 );
             }
@@ -366,9 +370,10 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
             failed += 1;
             if !args.quiet {
                 eprintln!(
-                    "[{:>4}/{:<4}] {} all {} workers failed in {}ms",
+                    "[{:>4}/{:<4}] {} all {} workers failed in {}ms ({}p/{}c)",
                     i + 1, args.count, instance_id,
-                    outcome.workers_reported, outcome.elapsed_ms
+                    outcome.workers_reported, outcome.elapsed_ms,
+                    piece_count, total_cells
                 );
             }
         }

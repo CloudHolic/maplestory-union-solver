@@ -37,7 +37,7 @@ impl PiecePool {
     }
 }
 
-const PIECE_COUNT_MIN: usize = 20;
+const PIECE_COUNT_MIN: usize = 35;
 const PIECE_COUNT_MAX: usize = 43;
 const SMALL_INCLUSION_PROB: f64 = 0.10;
 const SIX_INCLUSION_PROB: f64 = 0.05;
