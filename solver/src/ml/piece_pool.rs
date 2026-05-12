@@ -123,7 +123,7 @@ pub(crate) fn build_piece_pool(
 
 /// `Beta(2, 2)` for the size-5 vs size-4 ratio.
 fn sample_size5_ratio(rng: &mut impl Rng) -> f64 {
-    let beta = Beta::new(2.0_f64, 2.0_f64)
+    let beta = Beta::new(3.0_f64, 2.0_f64)
         .expect("Beta(2, 2) params are valid");
     beta.sample(rng)
 }
