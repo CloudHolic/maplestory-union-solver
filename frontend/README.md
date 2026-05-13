@@ -79,4 +79,4 @@ src/
 
 ## License
 
-MIT. See the repository root `LICENSE-POLICY.md`.
+MIT. See `LICENSE`.

@@ -104,4 +104,4 @@ internal/
 
 ## License
 
-MIT. See the repository root `LICENSE` file.
+MIT. See `LICENSE`.

@@ -109,4 +109,4 @@ generated `.d.ts`.
 
 ## License
 
-AGPL-3.0-or-later. See the repository root `LICENSE` file.
+AGPL-3.0-or-later. See `LICENSE`.

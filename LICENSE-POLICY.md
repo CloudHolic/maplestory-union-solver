@@ -14,7 +14,7 @@ to which part.
 | `frontend/**` | MIT | [`frontend/LICENSE`](frontend/LICENSE) |
 | `models/**` | CC-BY-4.0 | [`models/LICENSE`](models/LICENSE) |
 | `docs/**` | CC-BY-4.0 | [`docs/LICENSE`](docs/LICENSE) |
-| `scripts/**`, `deploy/**` | MIT | (covered by [`ui/LICENSE`](frontend/LICENSE)) |
+| `scripts/**`, `deploy/**`, `etl/**` | MIT | (covered by [`ui/LICENSE`](frontend/LICENSE)) |
 
 Each top-level directory has its own license, listed above. There is
 no repository-wide default — root-level files (README.md, LICENSE-POLICY.md, 
