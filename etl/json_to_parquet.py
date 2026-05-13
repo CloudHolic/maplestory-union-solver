@@ -115,3 +115,68 @@ def convert(in_dir: Path, out_dir: Path, batch_size: int) -> tuple[int, int]:
     br_batch: list[dict] = []
     instance_count = 0
     branch_count = 0
+
+    def flush_instances() -> None:
+        nonlocal inst_batch
+        if not inst_batch:
+            return
+
+        table = pa.Table.from_pylist(inst_batch, schema=INSTANCES_SCHEMA)
+        inst_writer.write_table(table)
+        inst_batch = []
+
+    def flush_branches() -> None:
+        nonlocal br_batch
+        if not br_batch:
+            return
+
+        table = pa.Table.from_pylist(br_batch, schema=BRANCHES_SCHEMA)
+        br_writer.write_table(table)
+        br_batch = []
+
+    shards = sorted(in_dir.glob("*.jsonl.gz"))
+    if not shards:
+        print(f"no .jsonl.gz files found in {in_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    for shard in shards:
+        print(f"  reading {shard.name}", file=sys.stderr)
+        for row in iter_jsonl_gz(shard):
+            kind = row.get("_kind")
+            if kind == "instance":
+                inst_batch.append(transform_instance(row))
+                instance_count += 1
+                if len(inst_batch) >= batch_size:
+                    flush_instances()
+            elif kind == "branch":
+                br_batch.append(transform_branch(row))
+                branch_count += 1
+                if len(br_batch) >= batch_size:
+                    flush_branches()
+            else:
+                print(f"  warning: unknown _kind {kind!r}, skipping", file=sys.stderr)
+
+    flush_instances()
+    flush_branches()
+    inst_writer.close()
+    br_writer.close()
+
+    return instance_count, branch_count
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Convert JSONL gz trace shards to parquet")
+    ap.add_argument("--in", dest="in_dir", type=Path, required=True,
+                    help="Input directory (e.g., ../shards/chunk-00)")
+    ap.add_argument("--out", dest="out_dir", type=Path, required=True,
+                    help="Output directory for parquet files")
+    ap.add_argument("--batch-size", type=int, default=1024,
+                    help="Rows per parquet write_table call (default: 1024)")
+    args = ap.parse_args()
+
+    instances, branches = convert(args.in_dir, args.out_dir, args.batch_size)
+    print(f"done. instances={instances}, branches={branches}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
