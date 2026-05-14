@@ -34,7 +34,7 @@ a `.env` file in the working directory. OS env vars override
 | `SERVER_ADDR`           | no       | `:8888`                          | listen address                                 |
 | `DATABASE_URL`          | no       | `file:./data/union.db?_pragma=…` | modernc.org/sqlite DSN                         |
 | `RATE_LIMIT_PER_MINUTE` | no       | `30`                             | per-IP cap on `/api`; burst is `rate/3`        |
-| `TRUSTED_PROXIES`       | no       | _(empty)_                        | reserved for slice 6 (XFF header validation)   |
+| `TRUSTED_PROXIES`       | no       | _(empty)_                        | reserved (XFF header validation)   |
 | `LOG_LEVEL`             | no       | `info`                           | `debug` / `info` / `warn` / `error`            |
 | `LOG_FORMAT`            | no       | `json`                           | `json` for prod, `text` for human reading      |
 
