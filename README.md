@@ -42,7 +42,6 @@ backend/      Go backend (NEXON Open API proxy + cache)
 solver/       Rust solver (WASM + native targets) + ML data generator
 poset/        Python ML training pipeline (dev-time only)
 etl/          JSONL -> Parquet -> HF Hub ETL (dev-time only)
-models/       Trained ONNX models
 docs/         Architecture and algorithm documentation
 ```
 

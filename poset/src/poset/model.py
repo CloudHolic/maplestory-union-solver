@@ -10,37 +10,31 @@ from torch import Tensor
 from poset.schema import BOARD_SIZE, CANONICAL_SIZE
 
 
+_PIECE_HIDDEN = 64
+_PIECE_OUT = 64
+_MLP_HIDDEN = 128
+
+
 class POSET(nn.Module):
-    """DeepSet over piece set + MLP over combined state.
+    """DeepSet over piece set + MLP over combined state."""
 
-    Args:
-        - piece_hidden: hidden dim of the piece encoder.
-        - piece_out:    output dim of the piece encoder (= pool dim).
-        - mlp_hidden:   hidden dim of the MLP.
-    """
-
-    def __init__(
-        self,
-        piece_hidden: int = 64,
-        piece_out: int =64,
-        mlp_hidden: int = 128
-    ) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         self.piece_encoder = nn.Sequential(
-            nn.Linear(CANONICAL_SIZE, piece_hidden),
+            nn.Linear(CANONICAL_SIZE, _PIECE_HIDDEN),
             nn.ReLU(),
-            nn.Linear(piece_hidden, piece_out),
+            nn.Linear(_PIECE_HIDDEN, _PIECE_OUT),
             nn.ReLU()
         )
 
-        mlp_in = BOARD_SIZE + 1 + piece_out
+        mlp_in = BOARD_SIZE + 1 + _PIECE_OUT
         self.main_mlp = nn.Sequential(
-            nn.Linear(mlp_in, mlp_hidden),
+            nn.Linear(mlp_in, _MLP_HIDDEN),
             nn.ReLU(),
-            nn.Linear(mlp_hidden, mlp_hidden // 2),
+            nn.Linear(_MLP_HIDDEN, _MLP_HIDDEN // 2),
             nn.ReLU(),
-            nn.Linear(mlp_hidden // 2, 1),
+            nn.Linear(_MLP_HIDDEN // 2, 1),
         )
 
     def forward(

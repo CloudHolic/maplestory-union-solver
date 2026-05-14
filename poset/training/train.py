@@ -19,7 +19,7 @@ from tqdm import tqdm
 from poset.model import POSET
 from poset.transforms import pad_piece_set, post_state_to_tensors
 from training.dataset import BranchTraceDataset, TrainingItem
-from training.loss import compute_label, pairwise_margin_loss
+from training.loss import compute_label, regression_loss
 
 # Collation
 
@@ -33,7 +33,6 @@ class TrainBatch:
     counts: Tensor          # [M, N_max]
     piece_mark: Tensor      # [M, N_max]
     labels: Tensor          # [M]
-    group_ids: Tensor       # [M]
 
 
 def _collate(items: list[TrainingItem]) -> TrainBatch:
@@ -48,11 +47,6 @@ def _collate(items: list[TrainingItem]) -> TrainBatch:
     # Pad piece sets to common max_n with mask.
     padded = pad_piece_set(per_item_tensors)
 
-    # Group ids: 1 integer per (instance_id, branch_id) seen in this batch.
-    branch_keys = [(it.header.instance_id, it.branch.branch_id) for it in items]
-    unique_keys = {k: i for i, k in enumerate(dict.fromkeys(branch_keys))}
-    group_ids = torch.tensor([unique_keys[k] for k in branch_keys], dtype=torch.long)
-
     # Labels.
     labels = torch.tensor([compute_label(it.candidate) for it in items], dtype=torch.float32)
 
@@ -62,8 +56,7 @@ def _collate(items: list[TrainingItem]) -> TrainBatch:
         pieces=padded["pieces"],
         counts=padded["counts"],
         piece_mark=padded["piece_mark"],
-        labels=labels,
-        group_ids=group_ids
+        labels=labels
     )
 
 
@@ -73,8 +66,7 @@ def _train_step(
     model: POSET,
     batch: TrainBatch,
     optimizer: Optimizer,
-    device: torch.device,
-    margin: float
+    device: torch.device
 ) -> float:
     model.train()
     batch_on_device = TrainBatch(
@@ -83,8 +75,7 @@ def _train_step(
         pieces=batch.pieces.to(device),
         counts=batch.counts.to(device),
         piece_mark=batch.piece_mark.to(device),
-        labels=batch.labels.to(device),
-        group_ids=batch.group_ids.to(device),
+        labels=batch.labels.to(device)
     )
 
     scores = model(
@@ -95,12 +86,7 @@ def _train_step(
         batch_on_device.piece_mark
     ).squeeze(-1)
 
-    loss = pairwise_margin_loss(
-        scores,
-        batch_on_device.labels,
-        batch_on_device.group_ids,
-        margin=margin
-    )
+    loss = regression_loss(scores, batch_on_device.labels)
 
     optimizer.zero_grad()
     loss.backward()
@@ -109,6 +95,36 @@ def _train_step(
     return loss.item()
 
 
+def _eval_loss(model: POSET, loader: DataLoader, device: torch.device) -> float:
+    """Compute mean loss over a validation loader."""
+
+    model.eval()
+    running, n_batches = 0.0, 0
+
+    with torch.no_grad():
+        for batch in tqdm(loader, desc="  val", leave=False):
+            batch_on_device = TrainBatch(
+                empty_target=batch.empty_target.to(device),
+                center_mark=batch.center_mark.to(device),
+                pieces=batch.pieces.to(device),
+                counts=batch.counts.to(device),
+                piece_mark=batch.piece_mark.to(device),
+                labels=batch.labels.to(device)
+            )
+
+            scores = model(
+                batch_on_device.empty_target,
+                batch_on_device.center_mark,
+                batch_on_device.pieces,
+                batch_on_device.counts,
+                batch_on_device.piece_mark
+            ).squeeze(-1)
+
+            running += regression_loss(scores, batch_on_device.labels).item()
+            n_batches += 1
+
+    return running / max(n_batches, 1)
+
 # Entry point
 
 def run_train(args: argparse.Namespace) -> None:
@@ -116,71 +132,65 @@ def run_train(args: argparse.Namespace) -> None:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    shard_paths = sorted(data_dir.glob("synth-*.jsonl.gz"))
-    if not shard_paths:
-        raise FileNotFoundError(
-            f"no shards matching synth-*.jsonl.gz in {data_dir}"
-        )
-    print(f"found {len(shard_paths)} shard(s) under {data_dir}")
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}")
 
-    model = POSET(
-        piece_hidden=args.piece_hidden,
-        piece_out=args.piece_out,
-        mlp_hidden=args.mlp_hidden,
-    ).to(device)
+    model = POSET().to(device)
 
     if args.init_from is not None:
         init_dir = Path(args.init_from)
-        loaded_config = json.loads((init_dir / "config.json").read_text())
-        for k in ("piece_hidden", "piece_out", "mlp_hidden"):
-            if loaded_config[k] != getattr(args, k):
-                raise ValueError(
-                    f"init-from hparam {k}={loaded_config[k]} mismatches "
-                    f"args.{k}={getattr(args, k)}"
-                )
-
         state = load_file(str(init_dir / "model.safetensors"))
         model.load_state_dict(state)
         print(f"initialized weights from {init_dir}/")
 
     optimizer = AdamW(model.parameters(), lr=args.lr)
 
-    dataset = BranchTraceDataset(shard_paths)
-    loader = DataLoader(
-        dataset,
+    train_set = BranchTraceDataset(data_dir, split="train", val_ratio=args.val_ratio)
+    train_loader = DataLoader(
+        train_set,
         batch_size=args.batch_size,
         collate_fn=_collate,
-        num_workers=0,
-
+        num_workers=0
     )
+
+    val_loader: DataLoader | None = None
+    if args.val_ratio > 0.0:
+        val_set = BranchTraceDataset(data_dir, split="val", val_ratio=args.val_ratio)
+        val_loader = DataLoader(
+            val_set,
+            batch_size=args.batch_size,
+            collate_fn=_collate,
+            num_workers=0
+        )
 
     best_loss = math.inf
     for epoch in range(args.epochs):
+        # Train
         running, n_batches = 0.0, 0
-        for batch in tqdm(loader, desc=f"epoch {epoch + 1}/{args.epochs}"):
-            running += _train_step(model, batch, optimizer, device, args.margin)
+        for batch in tqdm(train_loader, desc=f"epoch {epoch + 1}/{args.epochs} [train]"):
+            running += _train_step(model, batch, optimizer, device)
             n_batches += 1
+        train_loss = running / max(n_batches, 1)
 
-        mean_loss = running / max(n_batches, 1)
-        print(f"epoch {epoch + 1}: mean loss = {mean_loss:.4f}")
+        # Validate
+        val_loss: float | None = None
+        if val_loader is not None:
+            val_loss = _eval_loss(model, val_loader, device)
 
-        if mean_loss < best_loss:
-            best_loss = mean_loss
+        # Log
+        if val_loss is not None:
+            print(f"epoch {epoch + 1}: train_loss={train_loss:.4f}  val_loss={val_loss:.4f}")
+        else:
+            print(f"epoch {epoch + 1}: train_loss={train_loss:.4f}  (no val set)")
+
+        current = val_loss if val_loss is not None else train_loss
+        if current < best_loss:
+            best_loss = current
             weights_dir = out_dir / "best"
             weights_dir.mkdir(exist_ok=True)
             save_file(model.state_dict(), str(weights_dir / "model.safetensors"))
             (weights_dir / "config.json").write_text(
-                json.dumps(
-                    {
-                        "piece_hidden": args.piece_hidden,
-                        "piece_out": args.piece_out,
-                        "mlp_hidden": args.mlp_hidden
-                    },
-                    indent=2
-                )
+                json.dumps({"model_type": "poset"}, indent=2)
             )
             print(f"  saved best checkpoint → {weights_dir}/")
 
@@ -189,17 +199,15 @@ def run_train(args: argparse.Namespace) -> None:
 
 def build_parser(*, add_help: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="train", description="Train POSET.", add_help=add_help)
-    parser.add_argument("--data-dir", type=str, default="./data")
+    parser.add_argument("--data-dir", type=str, default="./data",
+                        help="Directory containing instances.parquet + branches.parquet.")
     parser.add_argument("--out-dir", type=str, default="./runs")
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--margin", type=float, default=1.0)
     parser.add_argument("--init-from", type=str, default=None,
-        help="Path to a checkpoint to initialize from (for fine-tuning).")
-    parser.add_argument("--piece_hidden", type=int, default=64)
-    parser.add_argument("--piece_out", type=int, default=64)
-    parser.add_argument("--mlp_hidden", type=int, default=128)
+                        help="Path to a checkpoint to initialize from (for fine-tuning).")
+    parser.add_argument("--val-ratio", type=float, default=0.1)
 
     return parser
 

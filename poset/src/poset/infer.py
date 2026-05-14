@@ -6,7 +6,6 @@
 Loads a trained model - either as a PyTorch checkpoint (`.pt`) or as an ONNX file (`.onnx`).
 """
 
-import json
 from pathlib import Path
 from typing import Protocol
 
@@ -15,6 +14,7 @@ import onnxruntime as ort
 import torch
 from safetensors.torch import load_file
 
+from poset.checkpoint import load_checkpoint
 from poset.model import POSET
 from poset.schema import PostState
 from poset.transforms import pad_piece_set, post_state_to_tensors
@@ -43,15 +43,19 @@ class POSETScorer:
     # Constructors
 
     @classmethod
-    def from_checkpoint(cls, path: str | Path) -> POSETScorer:
-        """Load from a pre-trained weights."""
+    def from_pretrained(
+        cls,
+        name_or_path: str | Path,
+        revision: str | None = None,
+        token: str | None = None
+    ) -> POSETScorer:
+        """Load from a local directory or download from the HuggingFace Hub."""
 
-        weights_dir = Path(path)
-        config = json.loads((weights_dir / "config.json").read_text())
+        local_path = load_checkpoint(name_or_path, revision, token)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        model = POSET(**config).to(device)
-        state = load_file(str(weights_dir / "model.safetensors"), device=str(device))
+        model = POSET().to(device)
+        state = load_file(str(local_path / "model.safetensors"), device=str(device))
         model.load_state_dict(state)
         model.eval()
 

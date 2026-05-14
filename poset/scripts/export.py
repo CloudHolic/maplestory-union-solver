@@ -4,7 +4,6 @@
 """Export a POSET checkpoint to ONNX."""
 
 import argparse
-import json
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +11,7 @@ import onnxruntime as ort
 import torch
 from safetensors.torch import load_file
 
+from poset.checkpoint import load_checkpoint
 from poset.model import POSET
 from poset.schema import BOARD_SIZE, CANONICAL_SIZE
 
@@ -21,18 +21,17 @@ _SAMPLE_N = 5
 
 
 def run_export(args: argparse.Namespace) -> None:
-    weights_dir = Path(args.weights)
+    weights_dir = load_checkpoint(args.weights)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    config = json.loads((weights_dir / "config.json").read_text())
     state = load_file(str(weights_dir / "model.safetensors"))
 
     # Load model on CPU - export traces don't need GPU.
-    model = POSET(**config)
+    model = POSET()
     model.load_state_dict(state)
     model.eval()
-    print(f"loaded checkpoint: {weights_dir} (config: {config})")
+    print(f"loaded checkpoint: {weights_dir})")
 
     sample = _make_sample_input(_SAMPLE_BATCH, _SAMPLE_N)
 
@@ -123,7 +122,7 @@ def build_parser(*, add_help: bool = True) -> argparse.ArgumentParser:
     )
 
     parser.add_argument("--weights", type=str, required=True,
-        help="Path to the input PyTorch checkpoint (.pt).")
+        help="Local checkpoint directory or HF Hub repo_id.")
     parser.add_argument("--out", type=str, required=True,
         help="Path to the output ONNX file (.onnx).")
     parser.add_argument("--opset", type=int, default=18,

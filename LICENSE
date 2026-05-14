@@ -10,7 +10,6 @@ Each directory has its own license file with the full text.
 | `backend/**` | MIT | [`backend/LICENSE`](backend/LICENSE) |
 | `frontend/**` | MIT | [`frontend/LICENSE`](frontend/LICENSE) |
 | `etl/**` | MIT | [`etl/LICENSE`](etl/LICENSE) |
-| `models/**` | CC-BY-4.0 | (license file added when `models/` is first published) |
 | `docs/**` | CC-BY-4.0 | [`docs/LICENSE`](docs/LICENSE) |
 | `scripts/**`, `deploy/**` | MIT | (covered by [`frontend/LICENSE`](frontend/LICENSE)) |
 

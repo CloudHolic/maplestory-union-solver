@@ -30,7 +30,7 @@ def run_infer(args: argparse.Namespace) -> None:
     ]
 
     if args.weights is not None:
-        scorer = POSETScorer.from_checkpoint(args.weights)
+        scorer = POSETScorer.from_pretrained(args.weights)
     else:
         scorer = POSETScorer.from_onnx(args.onnx)
 
@@ -54,7 +54,7 @@ def build_parser(*, add_help: bool = True) -> argparse.ArgumentParser:
 
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--weights", type=str, default=None,
-        help="Checkpoint directory.")
+        help="Local checkpoint directory or HF Hub repo_id.")
     source.add_argument("--onnx", type=str, default=None,
         help="ONNX file (.onnx).")
 

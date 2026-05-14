@@ -7,15 +7,17 @@ from dataclasses import dataclass
 
 from poset.schema import PreState
 
+
 @dataclass(slots=True, frozen=True)
 class Placement:
     """Compact placement description carried in the instance header.
 
     Fields:
         - cells: board-cells indices that this placement covers.
-        - piece_def_idx: index into the header's `canonical_bitmap` and the pre_state's `count` arrays,
-          identifying which piece definition this placement instantiates.
-        - mark_on_center: whether this placement's marked cell falls on the center 4-cell region.
+        - piece_def_idx: index into the header's `canonical_bitmap` and
+          the pre_state's `count` arrays, identifying which piece definition
+          this placement instantiates.
+        - mark_on_center: whether this placement's marked cell falls in the center 4-cell region.
     """
     cells: list[int]
     piece_def_idx: int
@@ -65,7 +67,8 @@ class BranchRow:
 
     Fields:
         - instance_id: Foreign key to the cached InstanceHeader.
-        - branch_id: Sequential branch identifier within the instance, assigned in solver-visit order.
+        - branch_id: Sequential branch identifier within the instance,
+          assigned in solver-visit order.
         - pre_state: Board state at branch entry.
         - candidates: All candidates the solver considered at this branch, in attempt order.
     """
@@ -74,3 +77,46 @@ class BranchRow:
     branch_id: int
     pre_state: PreState
     candidates: list[Candidate]
+
+# Parquet row -> dataclass converters
+
+def instance_from_arrow(row: dict) -> InstanceHeader:
+    """Convert a pyarrow row dict to InstanceHeader."""
+
+    return InstanceHeader(
+        instance_id=row["instance_id"],
+        canonical_bitmaps=[list(bm) for bm in row["canonical_bitmaps"]],
+        cell_to_grid_idx=row["cell_to_grid_idx"],
+        placements=[
+            Placement(
+                cells=list(p["cells"]),
+                piece_def_idx=p["piece_def_idx"],
+                mark_on_center=p["mark_on_center"],
+            )
+            for p in row["placements"]
+        ]
+    )
+
+
+def branch_from_arrow(row: dict) -> BranchRow:
+    """Convert a pyarrow row dict to BranchRow."""
+
+    pre = row["pre_state"]
+    return BranchRow(
+        instance_id=row["instance_id"],
+        branch_id=row["branch_id"],
+        pre_state=PreState(
+            empty_bitmap=bytes(pre["empty_bitmap"]),
+            center_mark=pre["center_mark"],
+            counts=list(pre["counts"])
+        ),
+        candidates=[
+            Candidate(
+                placement_idx=c["placement_idx"],
+                tried=c["tried"],
+                succeeded=c["succeeded"],
+                subtree_nodes=c["subtree_nodes"]
+            )
+            for c in row["candidates"]
+        ]
+    )

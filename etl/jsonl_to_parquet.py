@@ -81,7 +81,7 @@ def transform_branch(row: dict) -> dict:
             "center_mark": pre["center_mark"],
             "counts": pre["counts"]
         },
-        "candidates": pre["candidates"]
+        "candidates": row["candidates"]
     }
 
 

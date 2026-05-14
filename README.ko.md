@@ -42,7 +42,6 @@ backend/      Go 백엔드 (NEXON Open API 프록시 + 캐시)
 solver/       Rust 솔버 (WASM + native 타겟) + ML 데이터 생성기
 poset/        Python ML 학습 파이프라인 (개발 시에만)
 etl/          JSONL → Parquet → HF Hub 변환 도구 (개발 시에만)
-models/       학습된 ONNX 모델
 docs/         아키텍처 및 알고리즘 문서
 ```
 
