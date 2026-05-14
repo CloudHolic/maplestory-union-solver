@@ -4,13 +4,11 @@
 """POSET training loop."""
 
 import argparse
-import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from safetensors.torch import load_file, save_file
 from torch import Tensor
 from torch.optim import AdamW, Optimizer
 from torch.utils.data import DataLoader
@@ -33,6 +31,18 @@ class TrainBatch:
     counts: Tensor          # [M, N_max]
     piece_mark: Tensor      # [M, N_max]
     labels: Tensor          # [M]
+
+    def to(self, device: torch.device) -> TrainBatch:
+        """Move all tensors to a device. Returns a new TrainBatch."""
+
+        return TrainBatch(
+            empty_target=self.empty_target.to(device),
+            center_mark=self.center_mark.to(device),
+            pieces=self.pieces.to(device),
+            counts=self.counts.to(device),
+            piece_mark=self.piece_mark.to(device),
+            labels=self.labels.to(device)
+        )
 
 
 def _collate(items: list[TrainingItem]) -> TrainBatch:
@@ -62,6 +72,18 @@ def _collate(items: list[TrainingItem]) -> TrainBatch:
 
 # Training step
 
+def _forward_scores(model: POSET, batch: TrainBatch) -> Tensor:
+    """Run the model on a batch and return scores. Shape: [M]."""
+
+    return model(
+        batch.empty_target,
+        batch.center_mark,
+        batch.pieces,
+        batch.counts,
+        batch.piece_mark
+    ).squeeze(-1)
+
+
 def _train_step(
     model: POSET,
     batch: TrainBatch,
@@ -69,24 +91,9 @@ def _train_step(
     device: torch.device
 ) -> float:
     model.train()
-    batch_on_device = TrainBatch(
-        empty_target=batch.empty_target.to(device),
-        center_mark=batch.center_mark.to(device),
-        pieces=batch.pieces.to(device),
-        counts=batch.counts.to(device),
-        piece_mark=batch.piece_mark.to(device),
-        labels=batch.labels.to(device)
-    )
-
-    scores = model(
-        batch_on_device.empty_target,
-        batch_on_device.center_mark,
-        batch_on_device.pieces,
-        batch_on_device.counts,
-        batch_on_device.piece_mark
-    ).squeeze(-1)
-
-    loss = regression_loss(scores, batch_on_device.labels)
+    batch = batch.to(device)
+    scores = _forward_scores(model, batch)
+    loss = regression_loss(scores, batch.labels)
 
     optimizer.zero_grad()
     loss.backward()
@@ -103,27 +110,13 @@ def _eval_loss(model: POSET, loader: DataLoader, device: torch.device) -> float:
 
     with torch.no_grad():
         for batch in tqdm(loader, desc="  val", leave=False):
-            batch_on_device = TrainBatch(
-                empty_target=batch.empty_target.to(device),
-                center_mark=batch.center_mark.to(device),
-                pieces=batch.pieces.to(device),
-                counts=batch.counts.to(device),
-                piece_mark=batch.piece_mark.to(device),
-                labels=batch.labels.to(device)
-            )
-
-            scores = model(
-                batch_on_device.empty_target,
-                batch_on_device.center_mark,
-                batch_on_device.pieces,
-                batch_on_device.counts,
-                batch_on_device.piece_mark
-            ).squeeze(-1)
-
-            running += regression_loss(scores, batch_on_device.labels).item()
+            batch = batch.to(device)
+            scores = _forward_scores(model, batch)
+            running += regression_loss(scores, batch.labels).item()
             n_batches += 1
 
     return running / max(n_batches, 1)
+
 
 # Entry point
 
@@ -135,13 +128,11 @@ def run_train(args: argparse.Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}")
 
-    model = POSET().to(device)
-
     if args.init_from is not None:
-        init_dir = Path(args.init_from)
-        state = load_file(str(init_dir / "model.safetensors"))
-        model.load_state_dict(state)
-        print(f"initialized weights from {init_dir}/")
+        model = POSET.from_pretrained(args.init_from).to(device)
+        print(f"initialized weights from {args.init_from}")
+    else:
+        model = POSET().to(device)
 
     optimizer = AdamW(model.parameters(), lr=args.lr)
 
@@ -187,11 +178,7 @@ def run_train(args: argparse.Namespace) -> None:
         if current < best_loss:
             best_loss = current
             weights_dir = out_dir / "best"
-            weights_dir.mkdir(exist_ok=True)
-            save_file(model.state_dict(), str(weights_dir / "model.safetensors"))
-            (weights_dir / "config.json").write_text(
-                json.dumps({"model_type": "poset"}, indent=2)
-            )
+            model.save_pretrained(weights_dir)
             print(f"  saved best checkpoint → {weights_dir}/")
 
 

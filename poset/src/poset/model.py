@@ -5,17 +5,23 @@
 
 import torch
 import torch.nn as nn
+from huggingface_hub import PyTorchModelHubMixin
 from torch import Tensor
 
 from poset.schema import BOARD_SIZE, CANONICAL_SIZE
-
 
 _PIECE_HIDDEN = 64
 _PIECE_OUT = 64
 _MLP_HIDDEN = 128
 
 
-class POSET(nn.Module):
+class POSET(
+    nn.Module,
+    PyTorchModelHubMixin,
+    repo_url="https://github.com/CloudHolic/maplestory-union-solver",
+    license="cc-by-nc-4.0",
+    tags=["polyomino", "branching-policy", "exact-cover", "deepset"]
+):
     """DeepSet over piece set + MLP over combined state."""
 
     def __init__(self) -> None:

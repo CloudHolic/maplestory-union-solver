@@ -12,9 +12,7 @@ from typing import Protocol
 import numpy as np
 import onnxruntime as ort
 import torch
-from safetensors.torch import load_file
 
-from poset.checkpoint import load_checkpoint
 from poset.model import POSET
 from poset.schema import PostState
 from poset.transforms import pad_piece_set, post_state_to_tensors
@@ -51,12 +49,9 @@ class POSETScorer:
     ) -> POSETScorer:
         """Load from a local directory or download from the HuggingFace Hub."""
 
-        local_path = load_checkpoint(name_or_path, revision, token)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        model = POSET().to(device)
-        state = load_file(str(local_path / "model.safetensors"), device=str(device))
-        model.load_state_dict(state)
+        model = POSET.from_pretrained(name_or_path, revision=revision, token=token)
+        model = model.to(device)
         model.eval()
 
         def backend(empty_target, center_mark, pieces, counts, piece_mask):

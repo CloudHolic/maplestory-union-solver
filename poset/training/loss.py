@@ -5,12 +5,10 @@
 
 import math
 
-import torch
 from torch import Tensor
 from torch.nn.functional import huber_loss
 
 from training.schema import Candidate
-
 
 _FAIL_LABEL_NUM = 2.0
 _SUCCESS_LABEL = 3.0

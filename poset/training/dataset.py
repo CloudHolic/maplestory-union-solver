@@ -25,9 +25,8 @@ from training.schema import (
     InstanceHeader,
     Placement,
     branch_from_arrow,
-    instance_from_arrow
+    instance_from_arrow,
 )
-
 
 Split = Literal["train", "val", "all"]
 

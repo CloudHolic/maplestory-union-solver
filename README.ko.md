@@ -29,7 +29,7 @@
 | 솔버 코어 | Rust, WebAssembly로 컴파일 |
 | ML 추론 (WASM 내부) | [`tract`](https://github.com/sonos/tract) (순수 Rust ONNX 런타임) |
 | ML 학습 (개발 시에만) | Python + PyTorch (POSET 모델) |
-| 배포 | Docker + nginx, Cloudflare Tunnel을 통한 셀프 호스팅 (Slice 6 예정) |
+| 배포 | Docker + nginx, Cloudflare Tunnel을 통한 셀프 호스팅 (TODO) |
 
 모든 솔빙 계산은 클라이언트 측에서 일어난다. 백엔드는 캐릭터 정보 조회를 위한
 NEXON Open API 프록시 역할만 하며 솔빙에는 관여하지 않는다.
@@ -52,6 +52,11 @@ docs/         아키텍처 및 알고리즘 문서
 - [아키텍처](docs/architecture.md)
 - [ExactCover 알고리즘](docs/algorithms/exact-cover.md)
 - [ML 피처 설계](docs/poset/features.md)
+
+## HuggingFace Hub
+
+- 모델: [`CloudHolic/poset`](https://huggingface.co/CloudHolic/poset)
+- 데이터셋: [`CloudHolic/poset-traces`](https://huggingface.co/datasets/CloudHolic/poset-traces)
 
 ## 라이선스
 

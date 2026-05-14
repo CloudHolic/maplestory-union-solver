@@ -53,6 +53,11 @@ Each subdirectory has its own `README.md` with build instructions.
 - [ExactCover algorithm](docs/algorithms/exact-cover.md)
 - [ML feature design](docs/poset/features.md)
 
+## HuggingFace Hub
+
+- Model: [`CloudHolic/poset`](https://huggingface.co/CloudHolic/poset)
+- Dataset: [`CloudHolic/poset-traces`](https://huggingface.co/datasets/CloudHolic/poset-traces)
+
 ## License
 
 This repository uses multiple licenses by directory.

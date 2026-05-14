@@ -9,9 +9,7 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 import torch
-from safetensors.torch import load_file
 
-from poset.checkpoint import load_checkpoint
 from poset.model import POSET
 from poset.schema import BOARD_SIZE, CANONICAL_SIZE
 
@@ -21,17 +19,13 @@ _SAMPLE_N = 5
 
 
 def run_export(args: argparse.Namespace) -> None:
-    weights_dir = load_checkpoint(args.weights)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    state = load_file(str(weights_dir / "model.safetensors"))
-
     # Load model on CPU - export traces don't need GPU.
-    model = POSET()
-    model.load_state_dict(state)
+    model = POSET.from_pretrained(args.weights, map_location="cpu")
     model.eval()
-    print(f"loaded checkpoint: {weights_dir})")
+    print(f"loaded checkpoint: {args.weights}")
 
     sample = _make_sample_input(_SAMPLE_BATCH, _SAMPLE_N)
 
