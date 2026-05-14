@@ -29,7 +29,7 @@ placement satisfying all constraints.
 | Frontend | React 19 + Vite + TypeScript |
 | Solver core | Rust, compiled to WebAssembly |
 | ML inference (in WASM) | [`tract`](https://github.com/sonos/tract) (pure Rust ONNX runtime) |
-| ML training (dev-time only) | Python + LightGBM |
+| ML training (dev-time only) | Python + PyTorch (POSET model) |
 | Deployment | Docker + nginx, self-hosted via Cloudflare Tunnel |
 
 All computation happens client-side. No server-side calculation is involved.
@@ -38,39 +38,23 @@ All computation happens client-side. No server-side calculation is involved.
 
 ```
 frontend/     React frontend
-backend/      Go backend
+backend/      Go backend (NEXON Open API proxy + cache)
 solver/       Rust solver (WASM + native targets) + ML data generator
 poset/        Python ML training pipeline (dev-time only)
+etl/          JSONL -> Parquet -> HF Hub ETL (dev-time only)
 models/       Trained ONNX models
 docs/         Architecture and algorithm documentation
 ```
 
 Each subdirectory has its own `README.md` with build instructions.
 
-## Building
-
-See individual subproject READMEs. A top-level build script is provided:
-
-```bash
-./scripts/build-all.sh
-```
-
-which produces a static bundle in `ui/dist/`.
-
 ## Documentation
 
 - [Architecture](docs/architecture.md)
 - [ExactCover algorithm](docs/algorithms/exact-cover.md)
-- [ML feature design](docs/ml/features.md)
+- [ML feature design](docs/poset/features.md)
 
 ## License
 
-This repository uses multiple licenses. See [`LICENSE-POLICY.md`](LICENSE-POLICY.md)
-for the mapping between directories and applicable licenses.
-
-- Solver core (`solver/`): **AGPL-3.0-or-later**
-- ML pipeline (`poset/`): **GPL-3.0-or-later**
-- Frontend (`frontend/`): **MIT**
-- Server (`backend/`): **MIT**
-- Trained models (`models/`): **CC-BY-4.0**
-- Documentation (`docs/`): **CC-BY-4.0**
+This repository uses multiple licenses by directory.
+See [`LICENSE`](LICENSE) for the mapping.

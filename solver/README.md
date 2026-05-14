@@ -5,7 +5,7 @@ targets:
 
 - **Native** (default): standalone library and CLI binaries.
 - **WebAssembly**: browser-loadable module via wasm-bindgen and
-  wasm-pack, consumed by the React UI in `../ui/`.
+  wasm-pack, consumed by the React UI in `../frontend/`.
 
 Additionally provides an ML training data generator (cfg-tracing
 gated) that produces `.jsonl.gz` shards of branch traces.
@@ -30,7 +30,8 @@ src/
     ├── benchmark.rs        solver portfolio benchmark
     └── generate.rs         ML training data generator (cfg-tracing only)
 tests/
-└── exact_cover_basic.rs    integration tests (cargo test)
+├── exact_cover_basic.rs           integration tests (algorithm)
+└── exact_cover_with_tracing.rs    integration tests (tracing feature, b2-variant)
 ```
 
 ## Build
@@ -70,11 +71,11 @@ Run `generate --help` for the full flag list.
 
 Requires `wasm-pack`.
 
-The `ui/` project drives WASM builds via its `build:wasm` npm script,
-which writes output into `ui/wasm-pkg`:
+The `frontend/` project drives WASM builds via its `build:wasm` npm script,
+which writes output into `frontend/wasm-pkg`:
 
 ```sh
-cd ../ui && pnpm build:wasm
+cd ../frontend && pnpm build:wasm
 ```
 
 Output is a `pkg/`-style directory containing `.wasm`, `.js`, and

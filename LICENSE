@@ -1,0 +1,18 @@
+# License
+
+This repository contains code under different licenses by directory.
+Each directory has its own license file with the full text.
+
+| Path | License | File |
+|------|---------|------|
+| `solver/**` | AGPL-3.0-or-later | [`solver/LICENSE`](solver/LICENSE) |
+| `poset/**` | GPL-3.0-or-later | [`poset/COPYING`](poset/COPYING) |
+| `backend/**` | MIT | [`backend/LICENSE`](backend/LICENSE) |
+| `frontend/**` | MIT | [`frontend/LICENSE`](frontend/LICENSE) |
+| `etl/**` | MIT | [`etl/LICENSE`](etl/LICENSE) |
+| `models/**` | CC-BY-4.0 | (license file added when `models/` is first published) |
+| `docs/**` | CC-BY-4.0 | [`docs/LICENSE`](docs/LICENSE) |
+| `scripts/**`, `deploy/**` | MIT | (covered by [`frontend/LICENSE`](frontend/LICENSE)) |
+
+Root-level files (`README.md`, `LICENSE`, `.gitignore`) are
+organizational metadata, not subject to a code license.

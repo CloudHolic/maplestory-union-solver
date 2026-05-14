@@ -95,7 +95,7 @@ Randomized backtracking with aggressive pruning, restart portfolio, and
 unit propagation. The key design choices:
 
 - **Bitset state**: the board state is a `Uint32Array` of fixed length
-  (capacity 224 cells, more than enough for the 201-cell board).
+  (capacity 224 cells, more than enough for the 215-cell board).
 - **Precomputed placements**: every valid (shape, rotation, reflection,
   anchor) tuple is enumerated once at setup and stored as a bitset.
   Placement legality checks reduce to bitwise AND.
@@ -217,7 +217,7 @@ a direct table lookup.
   runtime remains significantly above median.
 
 Both limitations motivate the ML-guided branching approach documented
-separately in [`../ml/features.md`](../ml/features.md).
+separately in [`../poset/features.md`](../poset/features.md).
 
 ## References
 

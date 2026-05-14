@@ -28,45 +28,33 @@
 | 프론트엔드 | React 19 + Vite + TypeScript |
 | 솔버 코어 | Rust, WebAssembly로 컴파일 |
 | ML 추론 (WASM 내부) | [`tract`](https://github.com/sonos/tract) (순수 Rust ONNX 런타임) |
-| ML 학습 (개발 시에만) | Python + LightGBM |
-| 배포 | Docker + nginx, Cloudflare Tunnel을 통한 셀프 호스팅 |
+| ML 학습 (개발 시에만) | Python + PyTorch (POSET 모델) |
+| 배포 | Docker + nginx, Cloudflare Tunnel을 통한 셀프 호스팅 (Slice 6 예정) |
 
-모든 계산은 클라이언트 측에서 일어난다. 서버사이드 계산은 없다.
+모든 솔빙 계산은 클라이언트 측에서 일어난다. 백엔드는 캐릭터 정보 조회를 위한
+NEXON Open API 프록시 역할만 하며 솔빙에는 관여하지 않는다.
 
 ## 레포 구조
 
 ```
-ui/       React 프론트엔드
-wasm/     Rust 솔버 (WASM + native 타겟)
-ml/       Python ML 학습 파이프라인 (개발 시에만)
-models/   학습된 ONNX 모델
-docs/     아키텍처 및 알고리즘 문서
+frontend/     React 프론트엔드
+backend/      Go 백엔드 (NEXON Open API 프록시 + 캐시)
+solver/       Rust 솔버 (WASM + native 타겟) + ML 데이터 생성기
+poset/        Python ML 학습 파이프라인 (개발 시에만)
+etl/          JSONL → Parquet → HF Hub 변환 도구 (개발 시에만)
+models/       학습된 ONNX 모델
+docs/         아키텍처 및 알고리즘 문서
 ```
 
 각 서브 디렉터리에는 빌드 방법을 담은 고유한 `README.md`가 있다.
-
-## 빌드
-
-각 서브 프로젝트의 README를 참조. 최상위 빌드 스크립트:
-
-```bash
-./scripts/build-all.sh
-```
-
-결과물은 `ui/dist/`에 정적 번들로 생성된다.
 
 ## 문서
 
 - [아키텍처](docs/architecture.md)
 - [ExactCover 알고리즘](docs/algorithms/exact-cover.md)
-- [ML 피처 설계](docs/ml/features.md)
+- [ML 피처 설계](docs/poset/features.md)
 
 ## 라이선스
 
-이 레포는 여러 라이선스를 사용한다. 디렉터리별 적용 라이선스는
-[`LICENSE-POLICY.md`](LICENSE-POLICY.md) 참조.
-
-- 솔버 코어 및 ML 파이프라인: **LGPL-3.0-or-later**
-- 프론트엔드 (`ui/`): **MIT**
-- 학습된 모델 (`models/`): **CC-BY-4.0**
-- 문서 (`docs/`): **CC-BY-4.0**
+이 레포는 디렉터리별로 다른 라이선스를 사용한다.
+매핑은 [`LICENSE`](LICENSE) 참조.
