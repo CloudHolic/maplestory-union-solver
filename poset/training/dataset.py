@@ -55,48 +55,56 @@ class BranchTraceDataset(IterableDataset[TrainingItem]):
         if not (0.0 <= val_ratio < 1.0):
             raise ValueError(f"val_ratio must be in [0, 1), got {val_ratio}")
 
-        instances_path = data_dir / "instances.parquet"
-        branches_path = data_dir / "branches.parquet"
-        if not instances_path.is_file():
-            raise FileNotFoundError(f"missing: {instances_path}")
-        if not branches_path.is_file():
-            raise FileNotFoundError(f"missing: {branches_path}")
+        instances_dir = data_dir / "instances"
+        branches_dir = data_dir / "branches"
+        if not instances_dir.is_dir():
+            raise FileNotFoundError(f"missing folder: {instances_dir}")
+        if not branches_dir.is_dir():
+            raise FileNotFoundError(f"missing folder: {branches_dir}")
 
-        self._branches_path = branches_path
+        instances_files = sorted(instances_dir.glob("*.parquet"))
+        branches_files = sorted(branches_dir.glob("*.parquet"))
+        if not instances_files:
+            raise FileNotFoundError(f"no parquet files in {instances_dir}")
+        if not branches_files:
+            raise FileNotFoundError(f"no parquet files in {branches_dir}")
+
+        self._branches_path = branches_files
         self._split = split
         self._val_ratio = val_ratio
 
         # Headers fully in memory
-        inst_table = pq.read_table(instances_path)
-        self._headers: dict[str, InstanceHeader] = {
-            row["instance_id"]: instance_from_arrow(row)
-            for row in inst_table.to_pylist()
-        }
+        self._headers: dict[str, InstanceHeader] = {}
+        for path in instances_files:
+            table = pq.read_table(path)
+            for row in table.to_pylist():
+                self._headers[row["instance_id"]] = instance_from_arrow(row)
 
     def __iter__(self) -> Iterator[TrainingItem]:
-        pf = pq.ParquetFile(self._branches_path)
-        for batch in pf.iter_batches():
-            for row in batch.to_pylist():
-                instance_id = row["instance_id"]
-                if not self._include(instance_id):
-                    continue
-
-                header = self._headers.get(instance_id)
-                if header is None:
-                    raise ValueError(f"branch references unknown instance_id {instance_id!r}")
-
-                branch = branch_from_arrow(row)
-                for candidate in branch.candidates:
-                    if not candidate.tried:
+        for path in self._branches_path:
+            pf = pq.ParquetFile(path)
+            for batch in pf.iter_batches():
+                for row in batch.to_pylist():
+                    instance_id = row["instance_id"]
+                    if not self._include(instance_id):
                         continue
 
-                    post_state = _reconstruct_post_state(
-                        branch.pre_state,
-                        header.placements[candidate.placement_idx],
-                        header.cell_to_grid_idx
-                    )
+                    header = self._headers.get(instance_id)
+                    if header is None:
+                        raise ValueError(f"branch references unknown instance_id {instance_id!r}")
 
-                    yield TrainingItem(header, branch, candidate, post_state)
+                    branch = branch_from_arrow(row)
+                    for candidate in branch.candidates:
+                        if not candidate.tried:
+                            continue
+
+                        post_state = _reconstruct_post_state(
+                            branch.pre_state,
+                            header.placements[candidate.placement_idx],
+                            header.cell_to_grid_idx
+                        )
+
+                        yield TrainingItem(header, branch, candidate, post_state)
 
     def _include(self, instance_id: str) -> bool:
         """Decide whether this instance belongs to the current split."""
