@@ -119,7 +119,7 @@ class ShardedWriter:
             self.writer = None
 
     def _open_new_shard(self) -> None:
-        path = self.out_dir / f"{self.name}-{self.shard_idx: 04d}.parquet"
+        path = self.out_dir / f"{self.name}-{self.shard_idx:04d}.parquet"
         self.writer = pq.ParquetWriter(path, self.schema, compression="snappy")
         self.current_bytes = 0
         print(f"  opened {path.name}", file=sys.stderr)
