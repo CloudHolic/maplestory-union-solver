@@ -29,14 +29,14 @@ PLACEMENT_STRUCT = pa.struct([
 INSTANCES_SCHEMA = pa.schema([
     ("instance_id", pa.string()),
     # 6x6 byte-per-cell canonical bitmap per piece def, 36 bytes each.
-    ("canonical_bitmaps", pa.list_(pa.binary(36))),
+    ("canonical_bitmaps", pa.list_(pa.binary())),
     ("cell_to_grid_idx", pa.list_(pa.uint16())),
     ("placements", pa.list_(PLACEMENT_STRUCT))
 ])
 
 PRE_STATE_STRUCT = pa.struct([
     # 28-byte bit-packed empty-cell bitmap; bit `i` set means cell `i` empty.
-    ("empty_bitmap", pa.binary(28)),
+    ("empty_bitmap", pa.binary()),
     ("center_mark", pa.bool_()),
     ("counts", pa.list_(pa.uint8()))
 ])
