@@ -4,8 +4,8 @@ Reads every `*.jsonl.gz` shard from an input directory, parses each line
 as either an instance-header row or a branch row, and writes two parquet files
 in the output directory:
 
-- `instances.parquet` - one row per ML training instance
-- `branches.parquet` - one row per branch (FK = instance_id)
+- `instances/instances-NNNN.parquet`
+- `branches/branches-NNNN.parquet`
 """
 
 import argparse
@@ -55,6 +55,9 @@ BRANCHES_SCHEMA = pa.schema([
     ("candidates", pa.list_(CANDIDATE_STRUCT))
 ])
 
+DEFAULT_SHARD_SIZE_MB = 500
+DEFAULT_BATCH_SIZE = 1024
+
 
 # Transforms - JSON row dict -> pyarrow-friendly dict matching schemas.
 
@@ -85,6 +88,43 @@ def transform_branch(row: dict) -> dict:
     }
 
 
+# Sharded writer
+
+class ShardedWriter:
+    """Write a stream of rows into size-capped parquet shards."""
+
+    def __init__(self, out_dir: Path, name: str, schema: pa.Schema, target_mb: int):
+        self.out_dir = out_dir
+        self.name = name
+        self.schema = schema
+        self.target_bytes = target_mb * 1024 * 1024
+        self.shard_idx = 0
+        self.current_bytes = 0
+        self.writer: pq.ParquetWriter | None = None
+
+    def write_table(self, table: pa.Table) -> None:
+        if self.writer is None:
+            self._open_new_shard()
+
+        if self.writer is not None:
+            self.writer.write_table(table)
+            self.current_bytes += table.nbytes
+            if self.current_bytes >= self.target_bytes:
+                self.close()
+                self.shard_idx += 1
+
+    def close(self) -> None:
+        if self.writer is not None:
+            self.writer.close()
+            self.writer = None
+
+    def _open_new_shard(self) -> None:
+        path = self.out_dir / f"{self.name}-{self.shard_idx: 04d}.parquet"
+        self.writer = pq.ParquetWriter(path, self.schema, compression="snappy")
+        self.current_bytes = 0
+        print(f"  opened {path.name}", file=sys.stderr)
+
+
 # Pipeline
 
 def iter_jsonl_gz(path: Path):
@@ -98,18 +138,19 @@ def iter_jsonl_gz(path: Path):
             yield json.loads(line)
 
 
-def convert(in_dir: Path, out_dir: Path, batch_size: int) -> tuple[int, int]:
-    """Convert all jsonl.gz shards in `in_dir` to 2 parquet files in `out_dir`.
+def convert(in_dir: Path, out_dir: Path, batch_size: int, shard_mb: int) -> tuple[int, int]:
+    """Convert all jsonl.gz shards in `in_dir` to sharded parquet.
 
     Returns `(instance_count, branch_count)`.
     """
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    instances_path = out_dir / "instances.parquet"
-    branches_path = out_dir / "branches.parquet"
+    inst_dir = out_dir / "instances"
+    br_dir = out_dir / "branches"
+    inst_dir.mkdir(parents=True, exist_ok=True)
+    br_dir.mkdir(parents=True, exist_ok=True)
 
-    inst_writer = pq.ParquetWriter(instances_path, INSTANCES_SCHEMA, compression="snappy")
-    br_writer = pq.ParquetWriter(branches_path, BRANCHES_SCHEMA, compression="snappy")
+    inst_writer = ShardedWriter(inst_dir, "instances", INSTANCES_SCHEMA, shard_mb)
+    br_writer = ShardedWriter(br_dir, "branches", BRANCHES_SCHEMA, shard_mb)
 
     inst_batch: list[dict] = []
     br_batch: list[dict] = []
@@ -134,7 +175,7 @@ def convert(in_dir: Path, out_dir: Path, batch_size: int) -> tuple[int, int]:
         br_writer.write_table(table)
         br_batch = []
 
-    shards = sorted(in_dir.glob("*.jsonl.gz"))
+    shards = sorted(in_dir.rglob("*.jsonl.gz"))
     if not shards:
         print(f"no .jsonl.gz files found in {in_dir}", file=sys.stderr)
         sys.exit(1)
@@ -167,14 +208,16 @@ def convert(in_dir: Path, out_dir: Path, batch_size: int) -> tuple[int, int]:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Convert JSONL gz trace shards to parquet")
     ap.add_argument("--in", dest="in_dir", type=Path, required=True,
-                    help="Input directory (e.g., ../shards/chunk-00)")
+                    help="Input directory containing *.jsonl.gz files.")
     ap.add_argument("--out", dest="out_dir", type=Path, required=True,
                     help="Output directory for parquet files")
-    ap.add_argument("--batch-size", type=int, default=1024,
-                    help="Rows per parquet write_table call (default: 1024)")
+    ap.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE,
+                    help=f"Rows per parquet write_table call (default: {DEFAULT_BATCH_SIZE})")
+    ap.add_argument("--shard-size-mb", type=int, default=DEFAULT_SHARD_SIZE_MB,
+                    help=f"Target uncompressed shard size in MB (default: {DEFAULT_SHARD_SIZE_MB})")
     args = ap.parse_args()
 
-    instances, branches = convert(args.in_dir, args.out_dir, args.batch_size)
+    instances, branches = convert(args.in_dir, args.out_dir, args.batch_size, args.shard_size_mb)
     print(f"done. instances={instances}, branches={branches}", file=sys.stderr)
 
 
