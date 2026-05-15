@@ -24,7 +24,7 @@ def rename_split(split_dir: Path) -> int:
             continue
 
         name, idx = m.group(1), int(m.group(2))
-        new_name = f"{name}-{idx:05d}-of-{total:05d}.parquet"
+        new_name = f"{name}-{(idx+1):05d}-of-{total:05d}.parquet"
         f.rename(f.parent / new_name)
 
     return total
