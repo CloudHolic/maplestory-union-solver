@@ -66,7 +66,7 @@ struct Args {
     luby_base: u64,
 
     /// Number of parallel workers.
-    /// 0 = auto (available_parallelism - 1.)
+    /// 0 = auto (available_parallelism - 1, at least 2).
     /// N > 0 = N workers race with independent seeds.
     #[arg(short, long, default_value_t = 0)]
     workers: usize,

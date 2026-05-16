@@ -551,14 +551,27 @@ fn backtrack(
     #[cfg(feature = "tracing")]
     if let Some(t) = tracer.as_deref_mut() {
         let mut valid_candidates: Vec<u32> = Vec::new();
-        for group in &env.cell_pl_by_type[branch as usize] {
-            if env.state.remaining[group.type_idx as usize] == 0 {
+        for gi in 0..env.cell_pl_by_type[branch as usize].len() {
+            let ti = env.cell_pl_by_type[branch as usize][gi].type_idx;
+            if env.state.remaining[ti as usize] == 0 {
                 continue;
             }
 
-            for &p_idx in &group.placements {
+            let placements_len = env.cell_pl_by_type[branch as usize][gi].placements.len();
+            for k in 0..placements_len {
+                let p_idx = env.cell_pl_by_type[branch as usize][gi].placements[k];
                 let pl = &ctx.placements[p_idx as usize];
-                if !env.state.covered.has_overlap(&pl.bits) {
+
+                if env.state.covered.has_overlap(&pl.bits) {
+                    continue;
+                }
+
+                let drop = will_drop_center_mark_type(ctx, &env.state, pl);
+                let undo = env.state.apply_placement(pl, p_idx as usize, drop);
+                let passes = neighbor_check(pl, &env.state, &ctx.cell_pl_by_type, &ctx.placements);
+                env.state.undo_placement(pl, undo);
+
+                if passes {
                     valid_candidates.push(p_idx);
                 }
             }
@@ -609,6 +622,11 @@ fn backtrack(
             }
 
             if success {
+                #[cfg(feature = "tracing")]
+                if let Some(t) = tracer.as_deref_mut() {
+                    t.on_branch_complete();
+                }
+
                 return true;
             }
 
@@ -621,6 +639,10 @@ fn backtrack(
     }
 
     // No branch succeeded. Undo the cascade and report failure.
+    #[cfg(feature = "tracing")]
+    if let Some(t) = tracer.as_deref_mut() {
+        t.on_branch_complete();
+    }
     undo_cascade(ctx, env, cascade_depth);
     false
 }
@@ -853,6 +875,11 @@ pub fn solve_exact_cover(
         env.restarts += 1;
         let next_budget = luby.next().expect("Luby iterator never terminates");
         env.reset_for_restart(&ctx, next_budget, &mut rng);
+
+        #[cfg(feature = "tracing")]
+        if let Some(t) = tracer.as_deref_mut() {
+            t.reset_for_restart();
+        }
 
         if backtrack(
             &ctx, &mut env, cancel,
