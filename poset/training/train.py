@@ -29,7 +29,7 @@ class TrainBatch:
     center_mark: Tensor     # [M, 1]
     pieces: Tensor          # [M, N_max, 36]
     counts: Tensor          # [M, N_max]
-    piece_mark: Tensor      # [M, N_max]
+    piece_mask: Tensor      # [M, N_max]
     labels: Tensor          # [M]
 
     def to(self, device: torch.device) -> TrainBatch:
@@ -40,7 +40,7 @@ class TrainBatch:
             center_mark=self.center_mark.to(device),
             pieces=self.pieces.to(device),
             counts=self.counts.to(device),
-            piece_mark=self.piece_mark.to(device),
+            piece_mask=self.piece_mask.to(device),
             labels=self.labels.to(device)
         )
 
@@ -65,7 +65,7 @@ def _collate(items: list[TrainingItem]) -> TrainBatch:
         center_mark=padded["center_mark"],
         pieces=padded["pieces"],
         counts=padded["counts"],
-        piece_mark=padded["piece_mark"],
+        piece_mask=padded["piece_mask"],
         labels=labels
     )
 
@@ -80,7 +80,7 @@ def _forward_scores(model: POSET, batch: TrainBatch) -> Tensor:
         batch.center_mark,
         batch.pieces,
         batch.counts,
-        batch.piece_mark
+        batch.piece_mask
     ).squeeze(-1)
 
 
@@ -107,13 +107,16 @@ def _eval_loss(model: POSET, loader: DataLoader, device: torch.device) -> float:
 
     model.eval()
     running, n_batches = 0.0, 0
+    pbar = tqdm(loader, desc="  val", leavel=False)
 
     with torch.no_grad():
-        for batch in tqdm(loader, desc="  val", leave=False):
+        for batch in pbar:
             batch = batch.to(device)
             scores = _forward_scores(model, batch)
-            running += regression_loss(scores, batch.labels).item()
+            step_loss = regression_loss(scores, batch.labels).item()
+            running += step_loss
             n_batches += 1
+            pbar.set_postfix(avg=f"{running / n_batches:.4f}")
 
     return running / max(n_batches, 1)
 
@@ -158,9 +161,12 @@ def run_train(args: argparse.Namespace) -> None:
     for epoch in range(args.epochs):
         # Train
         running, n_batches = 0.0, 0
-        for batch in tqdm(train_loader, desc=f"epoch {epoch + 1}/{args.epochs} [train]"):
-            running += _train_step(model, batch, optimizer, device)
+        pbar = tqdm(train_loader, desc=f"epoch {epoch + 1}/{args.epochs} [train]")
+        for batch in pbar:
+            step_loss = _train_step(model, batch, optimizer, device)
+            running += step_loss
             n_batches += 1
+            pbar.set_postfix(loss=f"{step_loss:.4f}", avg=f"{running / n_batches:.4f}")
         train_loss = running / max(n_batches, 1)
 
         # Validate
